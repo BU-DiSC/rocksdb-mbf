@@ -5,6 +5,7 @@
 //
 
 #include "table/block_based/filter_block_reader_common.h"
+
 #include "monitoring/perf_context_imp.h"
 #include "table/block_based/block_based_table_reader.h"
 #include "table/block_based/parsed_full_filter_block.h"
@@ -26,13 +27,34 @@ Status FilterBlockReaderCommon<TBlocklike>::ReadFilterBlock(
   const BlockBasedTable::Rep* const rep = table->get_rep();
   assert(rep);
 
-  const Status s =
-      table->RetrieveBlock(prefetch_buffer, read_options, rep->filter_handle,
-                           UncompressionDict::GetEmptyDict(), filter_block,
-                           BlockType::kFilter, get_context, lookup_context,
-                           /* for_compaction */ false, use_cache);
+  float prefetch_bpk = rep->prefetch_bpk;
+  float total_bpk = 0.0;
+  if (rep->filter_policy) {
+    total_bpk = rep->filter_policy->GetBitsPerKey();
+  }
+  if (!prefetch_filter) { /* modified for modular filter */
+    if (rep->table_options.modular_filters && prefetch_bpk > total_bpk) {
+      return Status::OK();
+    }
+    const Status s =
+        table->RetrieveBlock(prefetch_buffer, read_options, rep->filter_handle,
+                             UncompressionDict::GetEmptyDict(), filter_block,
+                             BlockType::kFilter, get_context, lookup_context,
+                             /* for_compaction */ false, use_cache);
 
-  return s;
+    return s;
+  } else {
+    if (rep->table_options.modular_filters && prefetch_bpk <= 0.0) {
+      return Status::OK();
+    }
+    const Status s = table->RetrieveBlock(
+        prefetch_buffer, read_options, rep->prefetch_filter_handle,
+        UncompressionDict::GetEmptyDict(), filter_block,
+        BlockType::kPrefetchFilter, get_context, lookup_context,
+        /* for_compaction */ false, use_cache,
+        in_cache);  // note: in_cache argument not in latest version of rocksdb
+    return s;
+  }
 }
 
 template <typename TBlocklike>
@@ -66,12 +88,20 @@ template <typename TBlocklike>
 Status FilterBlockReaderCommon<TBlocklike>::GetOrReadFilterBlock(
     bool no_io, GetContext* get_context,
     BlockCacheLookupContext* lookup_context,
-    CachableEntry<TBlocklike>* filter_block) const {
+    CachableEntry<TBlocklike>* filter_block, bool prefetch_filter,
+    bool* in_cache) const { /* added for modular filter */
   assert(filter_block);
 
-  if (!filter_block_.IsEmpty()) {
-    filter_block->SetUnownedValue(filter_block_.GetValue());
-    return Status::OK();
+  if (prefetch_filter) {
+    if (!prefetch_filter_block_.IsEmpty()) {
+      filter_block->SetUnownedValue(prefetch_filter_block_.GetValue());
+      return Status::OK();
+    }
+  } else {
+    if (!filter_block_.IsEmpty()) {
+      filter_block->SetUnownedValue(filter_block_.GetValue());
+      return Status::OK();
+    }
   }
 
   ReadOptions read_options;
@@ -81,7 +111,7 @@ Status FilterBlockReaderCommon<TBlocklike>::GetOrReadFilterBlock(
 
   return ReadFilterBlock(table_, nullptr /* prefetch_buffer */, read_options,
                          cache_filter_blocks(), get_context, lookup_context,
-                         filter_block);
+                         filter_block, prefetch_filter, in_cache);
 }
 
 template <typename TBlocklike>

@@ -44,6 +44,7 @@
 #include "table/block_based/filter_block.h"
 #include "table/block_based/full_filter_block.h"
 #include "table/block_based/hash_index_reader.h"
+#include "table/block_based/modular_filter_block.h"
 #include "table/block_based/partitioned_filter_block.h"
 #include "table/block_based/partitioned_index_reader.h"
 #include "table/block_fetcher.h"
@@ -67,9 +68,7 @@ extern const uint64_t kBlockBasedTableMagicNumber;
 extern const std::string kHashIndexPrefixesBlock;
 extern const std::string kHashIndexPrefixesMetadataBlock;
 
-BlockBasedTable::~BlockBasedTable() {
-  delete rep_;
-}
+BlockBasedTable::~BlockBasedTable() { delete rep_; }
 
 std::atomic<uint64_t> BlockBasedTable::next_cache_key_id_(0);
 
@@ -236,6 +235,16 @@ void BlockBasedTable::UpdateCacheHitMetrics(BlockType block_type,
   }
 
   switch (block_type) {
+    case BlockType::kPrefetchFilter: /* added for modular filter*/
+      PERF_COUNTER_ADD(block_cache_filter_hit_count, 1);
+
+      if (get_context) {
+        ++get_context->get_context_stats_.num_cache_filter_hit;
+      } else {
+        RecordTick(statistics, BLOCK_CACHE_FILTER_HIT);
+      }
+      break;
+
     case BlockType::kFilter:
       PERF_COUNTER_ADD(block_cache_filter_hit_count, 1);
 
@@ -293,6 +302,13 @@ void BlockBasedTable::UpdateCacheMissMetrics(BlockType block_type,
 
   // TODO: introduce perf counters for misses per block type
   switch (block_type) {
+    case BlockType::kPrefetchFilter: /* added for modular filter */
+      if (get_context) {
+        ++get_context->get_context_stats_.num_cache_filter_miss;
+      } else {
+        RecordTick(statistics, BLOCK_CACHE_FILTER_MISS);
+      }
+      break;
     case BlockType::kFilter:
       if (get_context) {
         ++get_context->get_context_stats_.num_cache_filter_miss;
@@ -351,6 +367,22 @@ void BlockBasedTable::UpdateCacheInsertionMetrics(BlockType block_type,
   }
 
   switch (block_type) {
+    case BlockType::kPrefetchFilter: /* added for modular filter */
+      if (get_context) {
+        ++get_context->get_context_stats_.num_cache_filter_add;
+        if (redundant) {
+          ++get_context->get_context_stats_.num_cache_filter_add_redundant;
+        }
+        get_context->get_context_stats_.num_cache_filter_bytes_insert += usage;
+      } else {
+        RecordTick(statistics, BLOCK_CACHE_FILTER_ADD);
+        if (redundant) {
+          RecordTick(statistics, BLOCK_CACHE_FILTER_ADD_REDUNDANT);
+        }
+        RecordTick(statistics, BLOCK_CACHE_FILTER_BYTES_INSERT, usage);
+      }
+      break;
+
     case BlockType::kFilter:
       if (get_context) {
         ++get_context->get_context_stats_.num_cache_filter_add;
@@ -579,7 +611,8 @@ Status BlockBasedTable::Open(
     const SequenceNumber largest_seqno, const bool force_direct_prefetch,
     TailPrefetchStats* tail_prefetch_stats,
     BlockCacheTracer* const block_cache_tracer,
-    size_t max_file_size_for_l0_meta_pin) {
+    size_t max_file_size_for_l0_meta_pin,
+    const ModularFilterReadType mfilter_read_filters) {
   table_reader->reset();
 
   Status s;
@@ -957,15 +990,46 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
         case Rep::FilterType::kBlockFilter:
           prefix = kFilterBlockPrefix;
           break;
+        case Rep::FilterType::kModularFilter:
+          prefix = kModularFilterBlockPrefix;
+          break;
         default:
           assert(0);
       }
       std::string filter_block_key = prefix;
       filter_block_key.append(rep_->filter_policy->Name());
-      if (FindMetaBlock(meta_iter, filter_block_key, &rep_->filter_handle)
-              .ok()) {
-        rep_->filter_type = filter_type;
-        break;
+
+      if (prefix != kModularFilterBlockPrefix) {
+        if (FindMetaBlock(meta_iter, filter_block_key, &rep_->filter_handle)
+                .ok()) {
+          rep_->filter_type = filter_type;
+          break;
+        }
+      } else {
+        bool found =
+            FindMetaBlock(meta_iter, filter_block_key, &rep_->filter_handle)
+                .ok();
+
+        std::string prefetch_filter_block_key =
+            kPrefetchModularFilterBlockPrefix;
+        prefetch_filter_block_key.append(rep_->filter_policy->Name());
+        bool prefetch_found =
+            FindMetaBlock(meta_iter, prefetch_filter_block_key,
+                          &rep_->prefetch_filter_handle)
+                .ok();
+
+        if (found || prefetch_found) {
+          rep_->filter_type = filter_type;
+          if (!found) {
+            rep_->filter_handle.set_offset(0);
+            rep_->filter_handle.set_size(0);
+          }
+          if (!prefetch_found) {
+            rep_->prefetch_filter_handle.set_offset(0);
+            rep_->prefetch_filter_handle.set_size(0);
+          }
+          break;
+        }
       }
     }
   }
@@ -1282,9 +1346,12 @@ Status BlockBasedTable::PutDataBlockToCache(
           : 0;
   const Cache::Priority priority =
       rep_->table_options.cache_index_and_filter_blocks_with_high_priority &&
-              (block_type == BlockType::kFilter ||
+              ((block_type == BlockType::kFilter &&
+                !rep_->table_options.modular_filters) ||
                block_type == BlockType::kCompressionDictionary ||
-               block_type == BlockType::kIndex)
+               block_type == BlockType::kIndex ||
+               (block_type ==
+                BlockType::kPrefetchFilter)) /* added for modular filter */
           ? Cache::Priority::HIGH
           : Cache::Priority::LOW;
   assert(cached_block);
@@ -1391,7 +1458,9 @@ std::unique_ptr<FilterBlockReader> BlockBasedTable::CreateFilterBlockReader(
     case Rep::FilterType::kFullFilter:
       return FullFilterBlockReader::Create(this, ro, prefetch_buffer, use_cache,
                                            prefetch, pin, lookup_context);
-
+    case Rep::FilterType::kModularFilter:
+      return ModularFilterBlockReader::Create(this, prefetch_buffer, use_cache,
+                                              prefetch, pin, lookup_context);
     default:
       // filter_type is either kNoFilter (exited the function at the first if),
       // or it must be covered in this switch block
@@ -1495,6 +1564,8 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
       Statistics* statistics = rep_->ioptions.statistics;
       const bool maybe_compressed =
           block_type != BlockType::kFilter &&
+          block_type !=
+              BlockType::kPrefetchFilter && /* added for modular filter */
           block_type != BlockType::kCompressionDictionary &&
           rep_->blocks_maybe_compressed;
       const bool do_uncompress = maybe_compressed && !block_cache_compressed;
@@ -1560,6 +1631,9 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
         trace_block_type = TraceType::kBlockTraceDataBlock;
         break;
       case BlockType::kFilter:
+        trace_block_type = TraceType::kBlockTraceFilterBlock;
+        break;
+      case BlockType::kPrefetchFilter: /* added for modular filter */
         trace_block_type = TraceType::kBlockTraceFilterBlock;
         break;
       case BlockType::kCompressionDictionary:
@@ -1929,6 +2003,7 @@ Status BlockBasedTable::RetrieveBlock(
 
   const bool maybe_compressed =
       block_type != BlockType::kFilter &&
+      block_type != BlockType::kPrefetchFilter && /* added for modular filter */
       block_type != BlockType::kCompressionDictionary &&
       rep_->blocks_maybe_compressed;
   const bool do_uncompress = maybe_compressed;
@@ -2158,7 +2233,6 @@ bool BlockBasedTable::PrefixMayMatch(
 
   return may_match;
 }
-
 
 InternalIterator* BlockBasedTable::NewIterator(
     const ReadOptions& read_options, const SliceTransform* prefix_extractor,
@@ -2912,6 +2986,13 @@ Status BlockBasedTable::VerifyChecksum(const ReadOptions& read_options,
   return s;
 }
 
+void BlockBasedTable::SetModulrFilterReadType(
+    ModularFilterReadType _mfilter_read_filters) {
+  if (rep_ != nullptr) {
+    rep_->mfilter_read_filters = _mfilter_read_filters;
+  }
+}
+
 Status BlockBasedTable::VerifyChecksumInBlocks(
     const ReadOptions& read_options,
     InternalIteratorBase<IndexValue>* index_iter) {
@@ -2958,8 +3039,14 @@ BlockType BlockBasedTable::GetBlockTypeForMetaBlockByName(
     const Slice& meta_block_name) {
   if (meta_block_name.starts_with(kFilterBlockPrefix) ||
       meta_block_name.starts_with(kFullFilterBlockPrefix) ||
+      meta_block_name.starts_with(kModularFilterBlockPrefix) ||
       meta_block_name.starts_with(kPartitionedFilterBlockPrefix)) {
     return BlockType::kFilter;
+  }
+
+  if (meta_block_name.starts_with(
+          kPrefetchModularFilterBlockPrefix)) { /* added for modular filter */
+    return BlockType::kPrefetchFilter;
   }
 
   if (meta_block_name == kPropertiesBlock) {

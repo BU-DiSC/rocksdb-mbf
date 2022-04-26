@@ -195,6 +195,12 @@ class FastLocalBloomBitsBuilder : public XXH3pFilterBitsBuilder {
     assert(millibits_per_key >= 1000);
   }
 
+  void ResetBPK(double bpk) override { // modified for modular filters
+
+    millibits_per_key_ = static_cast<int>(bpk * 1000.0 + 0.500001);
+    num_probes_ = FastLocalBloomImpl::ChooseNumProbes(millibits_per_key_);
+  }
+
   // No Copy allowed
   FastLocalBloomBitsBuilder(const FastLocalBloomBitsBuilder&) = delete;
   void operator=(const FastLocalBloomBitsBuilder&) = delete;
@@ -765,6 +771,8 @@ class LegacyBloomBitsBuilder : public BuiltinFilterBitsBuilder {
 
   Slice Finish(std::unique_ptr<const char[]>* buf) override;
 
+  void ResetBPK(double bpk) override; // modified for modular filters
+
   size_t CalculateSpace(size_t num_entries) override {
     uint32_t dont_care1;
     uint32_t dont_care2;
@@ -805,6 +813,12 @@ LegacyBloomBitsBuilder::LegacyBloomBitsBuilder(const int bits_per_key,
       num_probes_(LegacyNoLocalityBloomImpl::ChooseNumProbes(bits_per_key_)),
       info_log_(info_log) {
   assert(bits_per_key_);
+}
+
+void LegacyBloomBitsBuilder::ResetBPK(double bpk) { // modified for modular filters
+
+     bits_per_key_ = (static_cast<int>(bpk * 1000.0 + 0.500001) + 500) / 1000;
+     num_probes_ = LegacyNoLocalityBloomImpl::ChooseNumProbes(bits_per_key_);
 }
 
 LegacyBloomBitsBuilder::~LegacyBloomBitsBuilder() {}
@@ -1123,7 +1137,23 @@ FilterBitsBuilder* BloomFilterPolicy::GetFilterBitsBuilder() const {
 }
 
 FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
-    const FilterBuildingContext& context) const {
+    const FilterBuildingContext& context, double bpk, bool prefetch) const { // modified by modular filter
+
+  int millibits_per_key, whole_bits_per_key;
+  if(prefetch){
+     double bits_per_key = bpk == 0.0 ? 1.0 : bpk;
+     millibits_per_key = static_cast<int>(bits_per_key * 1000.0 + 0.500001);
+     whole_bits_per_key = (millibits_per_key + 500) / 1000;
+  }else if(bpk != 0){
+     double bits_per_key = bits_per_key_ - bpk;
+     if(bits_per_key == 0.0) bits_per_key = 1.0;
+     millibits_per_key = static_cast<int>(bits_per_key * 1000.0 + 0.500001);
+     whole_bits_per_key = (millibits_per_key + 500) / 1000;
+  }else{
+     millibits_per_key = millibits_per_key_;
+     whole_bits_per_key = whole_bits_per_key_;
+  }
+
   Mode cur = mode_;
   bool offm = context.table_options.optimize_filters_for_memory;
   // Unusual code construction so that we can have just

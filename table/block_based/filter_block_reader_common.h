@@ -22,6 +22,13 @@ class FilePrefetchBuffer;
 template <typename TBlocklike>
 class FilterBlockReaderCommon : public FilterBlockReader {
  public:
+  // added for modular filter
+  FilterBlockReaderCommon(const BlockBasedTable* t,
+                          CachableEntry<TBlocklike>&& filter_block,
+                          CachableEntry<TBlocklike>&& prefetch_filter_block) 
+      : table_(t), filter_block_(std::move(filter_block)), prefetch_filter_block_(std::move(prefetch_filter_block)) {
+    assert(table_);
+  }
   FilterBlockReaderCommon(const BlockBasedTable* t,
                           CachableEntry<TBlocklike>&& filter_block)
       : table_(t), filter_block_(std::move(filter_block)) {
@@ -34,7 +41,8 @@ class FilterBlockReaderCommon : public FilterBlockReader {
                                 const ReadOptions& read_options, bool use_cache,
                                 GetContext* get_context,
                                 BlockCacheLookupContext* lookup_context,
-                                CachableEntry<TBlocklike>* filter_block);
+                                CachableEntry<TBlocklike>* filter_block,
+                                 bool prefetch_filter=false, bool* in_cache=nullptr); /* prefetch_filter arg added for modular filter */
 
   const BlockBasedTable* table() const { return table_; }
   const SliceTransform* table_prefix_extractor() const;
@@ -43,13 +51,15 @@ class FilterBlockReaderCommon : public FilterBlockReader {
 
   Status GetOrReadFilterBlock(bool no_io, GetContext* get_context,
                               BlockCacheLookupContext* lookup_context,
-                              CachableEntry<TBlocklike>* filter_block) const;
+                              CachableEntry<TBlocklike>* filter_block,
+                              bool prefetch_filter=false, bool* in_cache=nullptr) const; /* prefetch_filter arg added for modular filter */) const;
 
   size_t ApproximateFilterBlockMemoryUsage() const;
 
  private:
   const BlockBasedTable* table_;
   CachableEntry<TBlocklike> filter_block_;
+  CachableEntry<TBlocklike> prefetch_filter_block_; // added for modular filter
 };
 
 }  // namespace ROCKSDB_NAMESPACE

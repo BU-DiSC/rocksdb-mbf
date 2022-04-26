@@ -17,85 +17,86 @@
 #include "rocksdb/slice_transform.h"
 #include "table/block_based/filter_block_reader_common.h"
 #include "table/block_based/parsed_full_filter_block.h"
+#include "table/block_based/filter_policy_internal.h"
 #include "util/hash.h"
 
 namespace ROCKSDB_NAMESPACE {
 
-class FilterPolicy;
-class FilterBitsBuilder;
-class FilterBitsReader;
 
-// A FullFilterBlockBuilder is used to construct a full filter for a
-// particular Table.  It generates a single string which is stored as
+// A ModularFilterBlockBuilder is used to construct several modular filters for a
+// particular Table.  It generates multiple strings of which each is stored as
 // a special block in the Table.
 // The format of full filter block is:
 // +----------------------------------------------------------------+
-// |              full filter for all keys in sst file              |
+// |              modular filter (1) for all keys in sst file       |
+// |              modular filter (2) for all keys in sst file       |
+// |                           ...                                  |
 // +----------------------------------------------------------------+
-// The full filter can be very large. At the end of it, we put
-// num_probes: how many hash functions are used in bloom filter
 //
-class FullFilterBlockBuilder : public FilterBlockBuilder {
+class ModularFilterBlockBuilder :public FilterBlockBuilder{
  public:
-  explicit FullFilterBlockBuilder(const SliceTransform* prefix_extractor,
-                                  bool whole_key_filtering,
-                                  FilterBitsBuilder* filter_bits_builder);
+  explicit ModularFilterBlockBuilder(
+      const SliceTransform* prefix_extractor, bool whole_key_filtering,
+      const FilterBuildingContext& context,
+      /* const uint32_t partition_size,*/
+      double bpk,
+      bool prefetch);
   // No copying allowed
-  FullFilterBlockBuilder(const FullFilterBlockBuilder&) = delete;
-  void operator=(const FullFilterBlockBuilder&) = delete;
+  ModularFilterBlockBuilder(const ModularFilterBlockBuilder&) = delete;
+  void operator=(const ModularFilterBlockBuilder&) = delete;
 
-  // bits_builder is created in filter_policy, it should be passed in here
-  // directly. and be deleted here
-  ~FullFilterBlockBuilder() {}
+  ~ModularFilterBlockBuilder() {start_.clear();entries_.clear();}
 
   virtual bool IsBlockBased() override { return false; }
-  virtual void ResetFilterBuilder(float /* bpk */) override {}; // modified by modular filter
   virtual void StartBlock(uint64_t /*block_offset*/) override {}
-  virtual void Add(const Slice& key_without_ts) override;
+  virtual void Add(const Slice& key) override;
   virtual size_t NumAdded() const override { return num_added_; }
   virtual Slice Finish(const BlockHandle& tmp, Status* status) override;
+  virtual void ResetFilterBuilder(float bpk) override;
   using FilterBlockBuilder::Finish;
-
  protected:
   virtual void AddKey(const Slice& key);
-  std::unique_ptr<FilterBitsBuilder> filter_bits_builder_;
+  //std::unique_ptr<FilterBitsBuilder> filter_bits_builder_;
   virtual void Reset();
   void AddPrefix(const Slice& key);
   const SliceTransform* prefix_extractor() { return prefix_extractor_; }
-  const std::string& last_prefix_str() const { return last_prefix_str_; }
 
  private:
-  // important: all of these might point to invalid addresses
-  // at the time of destruction of this filter block. destructor
-  // should NOT dereference them.
+  FilterBuildingContext context_;
   const SliceTransform* prefix_extractor_;
   bool whole_key_filtering_;
   bool last_whole_key_recorded_;
   std::string last_whole_key_str_;
   bool last_prefix_recorded_;
   std::string last_prefix_str_;
-  // Whether prefix_extractor_->InDomain(last_whole_key_) is true.
-  // Used in partitioned filters so that the last prefix from the previous
-  // filter partition will be added to the current partition if
-  // last_key_in_domain_ is true, regardless of the current key.
-  bool last_key_in_domain_;
 
   uint32_t num_added_;
-  std::unique_ptr<const char[]> filter_data_;
+  double bpk_;
+  bool prefetch_;
+  std::vector<size_t> start_;
+  std::string entries_;
+  //std::unique_ptr<const char[]> prefetch_filter_gc;
+  std::unique_ptr<const char[]> filter_gc;
+  //std::unique_ptr<const char[]> filter_data_;
+  //FilterBitsBuilder* prefetch_filter_bits_builder_;
+  FilterBitsBuilder* filter_bits_builder_;
+  std::vector<uint32_t> filter_offsets_;
+
 };
 
 // A FilterBlockReader is used to parse filter from SST table.
 // KeyMayMatch and PrefixMayMatch would trigger filter checking
-class FullFilterBlockReader
+class ModularFilterBlockReader
     : public FilterBlockReaderCommon<ParsedFullFilterBlock> {
  public:
-  FullFilterBlockReader(const BlockBasedTable* t,
-                        CachableEntry<ParsedFullFilterBlock>&& filter_block);
+  ModularFilterBlockReader(const BlockBasedTable* t,
+                        CachableEntry<ParsedFullFilterBlock>&& filter_block,
+                        CachableEntry<ParsedFullFilterBlock>&& prefetch_filter_block);
 
   static std::unique_ptr<FilterBlockReader> Create(
-      const BlockBasedTable* table, const ReadOptions& ro,
-      FilePrefetchBuffer* prefetch_buffer, bool use_cache, bool prefetch,
-      bool pin, BlockCacheLookupContext* lookup_context);
+      const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
+      bool use_cache, bool prefetch, bool pin,
+      BlockCacheLookupContext* lookup_context);
 
   bool IsBlockBased() override { return false; }
 
@@ -103,6 +104,7 @@ class FullFilterBlockReader
                    uint64_t block_offset, const bool no_io,
                    const Slice* const const_ikey_ptr, GetContext* get_context,
                    BlockCacheLookupContext* lookup_context) override;
+
 
   bool PrefixMayMatch(const Slice& prefix,
                       const SliceTransform* prefix_extractor,
@@ -127,6 +129,7 @@ class FullFilterBlockReader
                      const Slice* const const_ikey_ptr, bool* filter_checked,
                      bool need_upper_bound_check, bool no_io,
                      BlockCacheLookupContext* lookup_context) override;
+   void NextMayMatch(const Slice& entry, bool no_io, GetContext* get_context, BlockCacheLookupContext* lookup_context, bool & next_match, bool* in_cache_p) const;
 
  private:
   bool MayMatch(const Slice& entry, bool no_io, GetContext* get_context,
@@ -136,6 +139,7 @@ class FullFilterBlockReader
                 BlockCacheLookupContext* lookup_context) const;
   bool IsFilterCompatible(const Slice* iterate_upper_bound, const Slice& prefix,
                           const Comparator* comparator) const;
+
 
  private:
   bool full_length_enabled_;

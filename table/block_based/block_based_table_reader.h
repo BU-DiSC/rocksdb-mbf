@@ -57,6 +57,8 @@ class BlockBasedTable : public TableReader {
  public:
   static const std::string kFilterBlockPrefix;
   static const std::string kFullFilterBlockPrefix;
+  static const std::string kPrefetchModularFilterBlockPrefix;
+  static const std::string kModularFilterBlockPrefix;
   static const std::string kPartitionedFilterBlockPrefix;
   // The longest prefix of the cache key used to identify blocks.
   // For Posix files the unique ID is three varints.
@@ -99,7 +101,8 @@ class BlockBasedTable : public TableReader {
                      bool force_direct_prefetch = false,
                      TailPrefetchStats* tail_prefetch_stats = nullptr,
                      BlockCacheTracer* const block_cache_tracer = nullptr,
-                     size_t max_file_size_for_l0_meta_pin = 0);
+                     size_t max_file_size_for_l0_meta_pin = 0,
+                     ModularFilterReadType mfilter_read_filters = ModularFilterReadType::kFirstFilterBlock); // added by modular filters
 
   bool PrefixMayMatch(const Slice& internal_key,
                       const ReadOptions& read_options,
@@ -174,6 +177,9 @@ class BlockBasedTable : public TableReader {
 
   Status VerifyChecksum(const ReadOptions& readOptions,
                         TableReaderCaller caller) override;
+                      
+  // added by modular filters
+  void SetModulrFilterReadType(ModularFilterReadType _mfilter_read_filters) override;
 
   ~BlockBasedTable();
 
@@ -505,7 +511,7 @@ struct BlockBasedTable::Rep {
   Rep(const ImmutableCFOptions& _ioptions, const EnvOptions& _env_options,
       const BlockBasedTableOptions& _table_opt,
       const InternalKeyComparator& _internal_comparator, bool skip_filters,
-      uint64_t _file_size, int _level, const bool _immortal_table)
+      uint64_t _file_size, int _level, const bool _immortal_table, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock)
       : ioptions(_ioptions),
         env_options(_env_options),
         table_options(_table_opt),
@@ -547,6 +553,7 @@ struct BlockBasedTable::Rep {
   enum class FilterType {
     kNoFilter,
     kFullFilter,
+    kModularFilter,
     kBlockFilter,
     kPartitionedFilter,
   };
@@ -599,6 +606,7 @@ struct BlockBasedTable::Rep {
   bool index_value_is_full = true;
 
   const bool immortal_table;
+  ModularFilterReadType mfilter_read_filters = ModularFilterReadType::kFirstFilterBlock;
 
   SequenceNumber get_global_seqno(BlockType block_type) const {
     return (block_type == BlockType::kFilter ||

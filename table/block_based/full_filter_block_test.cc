@@ -22,6 +22,8 @@ class TestFilterBitsBuilder : public FilterBitsBuilder {
  public:
   explicit TestFilterBitsBuilder() {}
 
+  void ResetBPK(double /*bpk*/) override {} // modified by modular filters
+
   // Add Key to filter
   void AddKey(const Slice& key) override {
     hash_entries_.push_back(Hash(key.data(), key.size(), 1));
@@ -211,6 +213,7 @@ class CountUniqueFilterBitsBuilderWrapper : public FilterBitsBuilder {
  public:
   explicit CountUniqueFilterBitsBuilderWrapper(FilterBitsBuilder* b) : b_(b) {}
 
+  void ResetBPK(double /*bpk*/) override {} // modified by modular filters
   ~CountUniqueFilterBitsBuilderWrapper() override {}
 
   void AddKey(const Slice& key) override {
