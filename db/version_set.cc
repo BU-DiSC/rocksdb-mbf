@@ -1491,6 +1491,8 @@ void Version::GetColumnFamilyMetaData(ColumnFamilyMetaData* cf_meta) {
           file->fd.largest_seqno, file->smallest.user_key().ToString(),
           file->largest.user_key().ToString(),
           file->stats.num_reads_sampled.load(std::memory_order_relaxed),
+          file->stats.num_tps.load(std::memory_order_relaxed), // modified by modular filters
+          file->prefetch_bpk, // modified by modular filters
           file->being_compacted, file->oldest_blob_file_number,
           file->TryGetOldestAncesterTime(), file->TryGetFileCreationTime(),
           file->file_checksum, file->file_checksum_func_name});
@@ -1950,6 +1952,8 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
         PERF_COUNTER_BY_LEVEL_ADD(user_key_return_count, 1,
                                   fp.GetHitFileLevel());
 
+        file_num_tp_inc(f->file_metadata); // modified by modular filters
+
         if (is_blob_index) {
           if (do_merge && value) {
             constexpr uint64_t* bytes_read = nullptr;
@@ -2146,7 +2150,7 @@ void Version::MultiGet(const ReadOptions& read_options, MultiGetRange* range,
                                     fp.GetHitFileLevel());
 
           file_range.MarkKeyDone(iter);
-
+          file_num_tp_inc(f->file_metadata); // modified by modular filters
           if (iter->is_blob_index) {
             if (iter->value) {
               constexpr uint64_t* bytes_read = nullptr;
@@ -5112,7 +5116,11 @@ Status VersionSet::WriteCurrentStateToManifest(
                        f->fd.smallest_seqno, f->fd.largest_seqno,
                        f->marked_for_compaction, f->oldest_blob_file_number,
                        f->oldest_ancester_time, f->file_creation_time,
-                       f->file_checksum, f->file_checksum_func_name);
+                       f->file_checksum, f->file_checksum_func_name,
+                       f->num_entries,
+                       f->stats.num_reads_sampled.load(std::memory_order_relaxed),
+                       f->stats.num_tps.load(std::memory_order_relaxed),
+                       f->prefetch_bpk); // modified by modular filters
         }
       }
 
@@ -5575,6 +5583,7 @@ void VersionSet::GetLiveFilesMetaData(std::vector<LiveFileMetaData>* metadata) {
         filemetadata.largest_seqno = file->fd.largest_seqno;
         filemetadata.num_reads_sampled = file->stats.num_reads_sampled.load(
             std::memory_order_relaxed);
+        filemetadata.prefetch_bpk = file->prefetch_bpk; // modified by modular filters
         filemetadata.being_compacted = file->being_compacted;
         filemetadata.num_entries = file->num_entries;
         filemetadata.num_deletions = file->num_deletions;
