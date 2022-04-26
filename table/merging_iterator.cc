@@ -54,6 +54,13 @@ class MergingIterator : public InternalIterator {
       AddToMinHeapOrCheckStatus(&child);
     }
     current_ = CurrentForward();
+
+    if(current_ != nullptr){
+        if(current_->iter() != nullptr){
+          avg_num_reads = current_->iter()->avg_num_reads;
+          avg_num_tps = current_->iter()->avg_num_tps;
+        }
+    } // modified by modular filters
   }
 
   void considerStatus(Status s) {
@@ -188,6 +195,13 @@ class MergingIterator : public InternalIterator {
       minHeap_.pop();
     }
     current_ = CurrentForward();
+
+    if(current_ != nullptr) {
+       if(current_->iter() != nullptr){
+         avg_num_reads = current_->iter()->avg_num_reads;
+         avg_num_tps = current_->iter()->avg_num_tps;
+       }
+    } // modified by modular filters
   }
 
   bool NextAndGetResult(IterateResult* result) override {

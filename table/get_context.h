@@ -169,6 +169,8 @@ class GetContext {
 
   void push_operand(const Slice& value, Cleanable* value_pinner);
 
+   Statistics* GetStatistics(){ return statistics_; } // modified by modular filter
+
  private:
   const Comparator* ucmp_;
   const MergeOperator* merge_operator_;

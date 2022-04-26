@@ -51,6 +51,13 @@ enum ChecksumType : char {
   kxxHash64 = 0x3,
 };
 
+enum ModularFilterReadType : char {
+  kNoFilterBlock = 0x0,
+  kFirstFilterBlock = 0x1,
+  kSecondFilterBlock = 0x2,
+  kBothFilterBlocks = 0x3,
+};
+
 // `PinningTier` is used to specify which tier of block-based tables should
 // be affected by a block cache pinning setting (see
 // `MetadataCacheOptions` below).
@@ -287,6 +294,15 @@ struct BlockBasedTableOptions {
   // Use partitioned full filters for each SST file. This option is
   // incompatible with block-based filters.
   bool partition_filters = false;
+
+  // added for modular filter
+  bool modular_filters = false;
+  bool adaptive_prefetch_modular_filters = false;
+  bool require_all_modules = true;
+  bool allow_whole_filter_skipping = false;
+  bool concurrent_load = false;
+  double prefetch_bpk = 0;
+  bool bpk_bounded = true;
 
   // EXPERIMENTAL Option to generate Bloom filters that minimize memory
   // internal fragmentation.

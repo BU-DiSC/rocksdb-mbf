@@ -27,7 +27,8 @@ namespace ROCKSDB_NAMESPACE {
 
 class Iterator : public Cleanable {
  public:
-  Iterator() {}
+  float avg_num_reads;// modified for modular filters
+  Iterator() {avg_num_reads = 0.0;} // modified for modular filters
   // No copying allowed
   Iterator(const Iterator&) = delete;
   void operator=(const Iterator&) = delete;

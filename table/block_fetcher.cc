@@ -260,6 +260,9 @@ IOStatus BlockFetcher::ReadBlockContents() {
 
     // TODO: introduce dedicated perf counter for range tombstones
     switch (block_type_) {
+      case BlockType::kPrefetchFilter: /* added for modular filter */
+        PERF_COUNTER_ADD(filter_block_read_count, 1);
+        break;
       case BlockType::kFilter:
         PERF_COUNTER_ADD(filter_block_read_count, 1);
         break;

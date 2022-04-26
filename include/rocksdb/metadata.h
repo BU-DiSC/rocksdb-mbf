@@ -59,18 +59,21 @@ struct SstFileMetaData {
         smallest_seqno(0),
         largest_seqno(0),
         num_reads_sampled(0),
+        num_tps(0),
+        prefetch_bpk(0.0),
         being_compacted(false),
         num_entries(0),
         num_deletions(0),
         oldest_blob_file_number(0),
         oldest_ancester_time(0),
-        file_creation_time(0) {}
+        file_creation_time(0) {}  // modified by modular filters
 
   SstFileMetaData(const std::string& _file_name, uint64_t _file_number,
                   const std::string& _path, size_t _size,
                   SequenceNumber _smallest_seqno, SequenceNumber _largest_seqno,
                   const std::string& _smallestkey,
                   const std::string& _largestkey, uint64_t _num_reads_sampled,
+                  uint64_t _num_tps, float _prefetch_bpk,
                   bool _being_compacted, uint64_t _oldest_blob_file_number,
                   uint64_t _oldest_ancester_time, uint64_t _file_creation_time,
                   std::string& _file_checksum,
@@ -84,6 +87,8 @@ struct SstFileMetaData {
         smallestkey(_smallestkey),
         largestkey(_largestkey),
         num_reads_sampled(_num_reads_sampled),
+        num_tps(_num_tps),
+        prefetch_bpk(_prefetch_bpk),
         being_compacted(_being_compacted),
         num_entries(0),
         num_deletions(0),
@@ -107,6 +112,11 @@ struct SstFileMetaData {
   std::string smallestkey;        // Smallest user defined key in the file.
   std::string largestkey;         // Largest user defined key in the file.
   uint64_t num_reads_sampled;     // How many times the file is read.
+
+  // added for modular filters
+  uint64_t num_tps;
+  float prefetch_bpk;
+  
   bool being_compacted;  // true if the file is currently being compacted.
 
   uint64_t num_entries;

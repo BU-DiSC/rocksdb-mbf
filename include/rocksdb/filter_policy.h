@@ -41,6 +41,8 @@ class FilterBitsBuilder {
  public:
   virtual ~FilterBitsBuilder() {}
 
+  virtual void ResetBPK(double bpk) = 0; //modified for modular filters
+
   // Add Key to filter, you could use any way to store the key.
   // Such as: storing hashes or original keys
   // Keys are in sorted order and duplicated keys are possible.
@@ -129,6 +131,8 @@ struct FilterBuildingContext {
 // You can choose filter type in NewBloomFilterPolicy
 class FilterPolicy {
  public:
+  float bits_per_key_ = 0;
+  float GetBitsPerKey() const {return bits_per_key_;} // modified for modular filters
   virtual ~FilterPolicy();
 
   // Creates a new FilterPolicy based on the input value string and returns the
@@ -178,7 +182,7 @@ class FilterPolicy {
   // If overriding GetFilterBitsBuilder() suffices, it is not necessary to
   // override this function.
   virtual FilterBitsBuilder* GetBuilderWithContext(
-      const FilterBuildingContext&) const {
+      const FilterBuildingContext&, double /* bpk */, bool /* prefetch */) const { // added for modular filter
     return GetFilterBitsBuilder();
   }
 

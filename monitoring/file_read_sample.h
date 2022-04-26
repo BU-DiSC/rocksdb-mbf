@@ -16,8 +16,13 @@ inline bool should_sample_file_read() {
   return (Random::GetTLSInstance()->Next() % kFileReadSampleRate == 307);
 }
 
-inline void sample_file_read_inc(FileMetaData* meta) {
-  meta->stats.num_reads_sampled.fetch_add(kFileReadSampleRate,
+inline void sample_file_read_inc(FileMetaData* meta) { // modified by modular filters
+  meta->stats.num_reads_sampled.fetch_add(kFileReadRate, // was KFileReadSampleRate
+                                          std::memory_order_relaxed);
+}
+
+inline void file_num_tp_inc(FileMetaData* meta) { // modified by modular filters
+  meta->stats.num_tps.fetch_add(kFileReadRate,
                                           std::memory_order_relaxed);
 }
 }  // namespace ROCKSDB_NAMESPACE
