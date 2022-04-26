@@ -43,6 +43,7 @@ class BlockBasedFilterBlockBuilder : public FilterBlockBuilder {
   void operator=(const BlockBasedFilterBlockBuilder&) = delete;
 
   virtual bool IsBlockBased() override { return true; }
+  virtual void ResetFilterBuilder(float /* bpk */) override {}; // modified by modular filter
   virtual void StartBlock(uint64_t block_offset) override;
   virtual void Add(const Slice& key_without_ts) override;
   virtual size_t NumAdded() const override { return num_added_; }

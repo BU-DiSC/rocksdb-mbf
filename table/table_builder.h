@@ -35,12 +35,13 @@ struct TableReaderOptions {
                      bool _skip_filters = false, bool _immortal = false,
                      bool _force_direct_prefetch = false, int _level = -1,
                      BlockCacheTracer* const _block_cache_tracer = nullptr,
-                     size_t _max_file_size_for_l0_meta_pin = 0)
+                     size_t _max_file_size_for_l0_meta_pin = 0, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // added for modular filters
       : TableReaderOptions(_ioptions, _prefix_extractor, _env_options,
                            _internal_comparator, _skip_filters, _immortal,
                            _force_direct_prefetch, _level,
                            0 /* _largest_seqno */, _block_cache_tracer,
-                           _max_file_size_for_l0_meta_pin) {}
+                           _max_file_size_for_l0_meta_pin, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // added for modular filters 
+                           {}
 
   // @param skip_filters Disables loading/accessing the filter block
   TableReaderOptions(const ImmutableCFOptions& _ioptions,
@@ -51,7 +52,8 @@ struct TableReaderOptions {
                      bool _force_direct_prefetch, int _level,
                      SequenceNumber _largest_seqno,
                      BlockCacheTracer* const _block_cache_tracer,
-                     size_t _max_file_size_for_l0_meta_pin)
+                     size_t _max_file_size_for_l0_meta_pin),
+                     mfilter_read_filters(_mfilter_read_filters) {}  // added for modular filters
       : ioptions(_ioptions),
         prefix_extractor(_prefix_extractor),
         env_options(_env_options),
@@ -84,6 +86,8 @@ struct TableReaderOptions {
   // Largest L0 file size whose meta-blocks may be pinned (can be zero when
   // unknown).
   const size_t max_file_size_for_l0_meta_pin;
+
+  ModularFilterReadType mfilter_read_filters;  // added for modular filters
 };
 
 struct TableBuilderOptions {
@@ -144,6 +148,8 @@ class TableBuilder {
  public:
   // REQUIRES: Either Finish() or Abandon() has been called.
   virtual ~TableBuilder() {}
+
+  virtual float ResetPrefetchBPK(float /* bpk */) {return 0.0;} // modified by modular filters
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
