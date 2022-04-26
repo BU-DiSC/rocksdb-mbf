@@ -38,6 +38,7 @@
 #include "table/block_based/filter_block.h"
 #include "table/block_based/filter_policy_internal.h"
 #include "table/block_based/full_filter_block.h"
+#include "table/block_based/modular_filter_block.h"
 #include "table/block_based/partitioned_filter_block.h"
 #include "table/format.h"
 #include "table/table_builder.h"
@@ -54,7 +55,6 @@ namespace ROCKSDB_NAMESPACE {
 extern const std::string kHashIndexPrefixesBlock;
 extern const std::string kHashIndexPrefixesMetadataBlock;
 
-
 // Without anonymous namespace here, we fail the warning -Wmissing-prototypes
 namespace {
 
@@ -63,7 +63,8 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
     const ImmutableCFOptions& /*opt*/, const MutableCFOptions& mopt,
     const FilterBuildingContext& context,
     const bool use_delta_encoding_for_index_values,
-    PartitionedIndexBuilder* const p_index_builder) {
+    PartitionedIndexBuilder* const p_index_builder,
+    const bool prefetch_filter) {
   const BlockBasedTableOptions& table_opt = context.table_options;
   if (table_opt.filter_policy == nullptr) return nullptr;
 
@@ -90,6 +91,16 @@ FilterBlockBuilder* CreateFilterBlockBuilder(
           mopt.prefix_extractor.get(), table_opt.whole_key_filtering,
           filter_bits_builder, table_opt.index_block_restart_interval,
           use_delta_encoding_for_index_values, p_index_builder, partition_size);
+    } else if (table_opt.modular_filters) {
+      if (prefetch_filter) {
+        return new ModularFilterBlockBuilder(
+            mopt.prefix_extractor.get(), table_opt.whole_key_filtering, context,
+            table_opt.prefetch_bpk, true);
+      } else {
+        return new ModularFilterBlockBuilder(
+            mopt.prefix_extractor.get(), table_opt.whole_key_filtering, context,
+            table_opt.prefetch_bpk, false);
+      }
     } else {
       return new FullFilterBlockBuilder(mopt.prefix_extractor.get(),
                                         table_opt.whole_key_filtering,
@@ -317,6 +328,7 @@ struct BlockBasedTableBuilder::Rep {
 
   const bool use_delta_encoding_for_index_values;
   std::unique_ptr<FilterBlockBuilder> filter_builder;
+  std::unique_ptr<FilterBlockBuilder> prefetch_filter_builder;
   char compressed_cache_key_prefix[BlockBasedTable::kMaxCacheKeyPrefixSize];
   size_t compressed_cache_key_prefix_size;
 
@@ -498,7 +510,12 @@ struct BlockBasedTableBuilder::Rep {
       context.info_log = ioptions.info_log;
       filter_builder.reset(CreateFilterBlockBuilder(
           ioptions, moptions, context, use_delta_encoding_for_index_values,
-          p_index_builder_));
+          p_index_builder_, false));
+      if (table_options.modular_filters) {
+        prefetch_filter_builder.reset(CreateFilterBlockBuilder(
+            ioptions, moptions, context, use_delta_encoding_for_index_values,
+            p_index_builder_, true));  // modified by modular filters
+      }
     }
 
     for (auto& collector_factories : *int_tbl_prop_collector_factories) {
@@ -893,6 +910,38 @@ BlockBasedTableBuilder::~BlockBasedTableBuilder() {
   // Catch errors where caller forgot to call Finish()
   assert(rep_->state == Rep::State::kClosed);
   delete rep_;
+}
+
+float BlockBasedTableBuilder::ResetPrefetchBPK(
+    float bpk) {  // modified by modular filters
+  if (rep_ != nullptr) {
+    if (rep_->table_options.modular_filters) {
+      if (!rep_->table_options.adaptive_prefetch_modular_filters ||
+          rep_->level_at_creation == 1) {
+        bpk = rep_->table_options.prefetch_bpk;
+      }
+
+      if (bpk < 1.0) {
+        rep_->prefetch_bpk_ = 0.0;
+        rep_->prefetch_filter_builder.reset(nullptr);
+        rep_->filter_builder->ResetFilterBuilder(rep_->total_bpk_);
+      } else if (bpk > rep_->total_bpk_) {
+        rep_->prefetch_bpk_ = bpk;
+        rep_->prefetch_filter_builder->ResetFilterBuilder(bpk);
+        rep_->filter_builder.reset(nullptr);
+      } else if (bpk > rep_->total_bpk_ - 1.0) {
+        rep_->prefetch_bpk_ = rep_->total_bpk_;
+        rep_->prefetch_filter_builder->ResetFilterBuilder(rep_->total_bpk_);
+        rep_->filter_builder.reset(nullptr);
+      } else {
+        rep_->prefetch_filter_builder->ResetFilterBuilder(bpk);
+        rep_->filter_builder->ResetFilterBuilder(rep_->total_bpk_ - bpk);
+        rep_->prefetch_bpk_ = bpk;
+      }
+      return rep_->prefetch_bpk_;
+    }
+  }
+  return 0.0;
 }
 
 void BlockBasedTableBuilder::Add(const Slice& key, const Slice& value) {
@@ -1437,6 +1486,27 @@ Status BlockBasedTableBuilder::InsertBlockInCache(const Slice& block_contents,
 
 void BlockBasedTableBuilder::WriteFilterBlock(
     MetaIndexBuilder* meta_index_builder) {
+  if (rep_->table_options.modular_filters &&
+      rep_->prefetch_bpk_ != 0) {  // added for modular filters
+    BlockHandle prefetch_filter_block_handle;
+    bool empty_prefetch_filter_block =
+        (rep_->prefetch_filter_builder == nullptr ||
+         rep_->prefetch_filter_builder->NumAdded() == 0);
+    if (ok() && !empty_prefetch_filter_block) {
+      Status s = Status::Incomplete();
+      while (ok() && s.IsIncomplete()) {
+        Slice filter_content = rep_->prefetch_filter_builder->Finish(
+            prefetch_filter_block_handle, &s);
+        assert(s.ok() || s.IsIncomplete());
+        rep_->props.filter_size += filter_content.size();
+        WriteRawBlock(filter_content, kNoCompression,
+                      &prefetch_filter_block_handle);
+      }
+      std::string key = BlockBasedTable::kPrefetchModularFilterBlockPrefix;
+      key.append(rep_->table_options.filter_policy->Name());
+      meta_index_builder->Add(key, prefetch_filter_block_handle);
+    }
+  }
   BlockHandle filter_block_handle;
   bool empty_filter_block = (rep_->filter_builder == nullptr ||
                              rep_->filter_builder->NumAdded() == 0);
@@ -1457,9 +1527,13 @@ void BlockBasedTableBuilder::WriteFilterBlock(
     if (rep_->filter_builder->IsBlockBased()) {
       key = BlockBasedTable::kFilterBlockPrefix;
     } else {
-      key = rep_->table_options.partition_filters
-                ? BlockBasedTable::kPartitionedFilterBlockPrefix
-                : BlockBasedTable::kFullFilterBlockPrefix;
+      if (rep_->table_options.modular_filters) {
+        key = BlockBasedTable::kModularFilterBlockPrefix;
+      } else {
+        key = rep_->table_options.partition_filters
+                  ? BlockBasedTable::kPartitionedFilterBlockPrefix
+                  : BlockBasedTable::kFullFilterBlockPrefix;
+      }
     }
     key.append(rep_->table_options.filter_policy->Name());
     meta_index_builder->Add(key, filter_block_handle);
@@ -1922,6 +1996,8 @@ const char* BlockBasedTableBuilder::GetFileChecksumFuncName() const {
 
 const std::string BlockBasedTable::kFilterBlockPrefix = "filter.";
 const std::string BlockBasedTable::kFullFilterBlockPrefix = "fullfilter.";
+const std::string BlockBasedTable::kModularFilterBlockPrefix = "modularfilter."; /* added for modular filter */
+const std::string BlockBasedTable::kPrefetchModularFilterBlockPrefix = "prefetch.modularfilter."; /* added for modular filter */
 const std::string BlockBasedTable::kPartitionedFilterBlockPrefix =
     "partitionedfilter.";
 }  // namespace ROCKSDB_NAMESPACE

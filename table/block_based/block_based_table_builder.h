@@ -60,6 +60,8 @@ class BlockBasedTableBuilder : public TableBuilder {
   // REQUIRES: Either Finish() or Abandon() has been called.
   ~BlockBasedTableBuilder();
 
+    float ResetPrefetchBPK(float bpk) override; // modified by modular filters
+
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
   // REQUIRES: Finish(), Abandon() have not been called
