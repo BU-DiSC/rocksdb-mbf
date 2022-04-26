@@ -356,6 +356,9 @@ void CompactionIterator::NextFromInput() {
     value_ = input_->value();
     iter_stats_.num_input_records++;
 
+    avg_num_reads_ = input_->avg_num_reads; // modified for modular filters
+    avg_num_tps_ = input_->avg_num_tps; // modified for modular filters
+
     Status pik_status = ParseInternalKey(key_, &ikey_, allow_data_in_errors_);
     if (!pik_status.ok()) {
       iter_stats_.num_input_corrupt_records++;

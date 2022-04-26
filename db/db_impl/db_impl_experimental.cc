@@ -130,7 +130,10 @@ Status DBImpl::PromoteL0(ColumnFamilyHandle* column_family, int target_level) {
                    f->fd.smallest_seqno, f->fd.largest_seqno,
                    f->marked_for_compaction, f->oldest_blob_file_number,
                    f->oldest_ancester_time, f->file_creation_time,
-                   f->file_checksum, f->file_checksum_func_name);
+                   f->file_checksum, f->file_checksum_func_name, f->num_entries,
+                   f->stats.num_reads_sampled.load(std::memory_order_relaxed),
+                   f->stats.num_tps.load(std::memory_order_relaxed),
+                   f->prefetch_bpk); // modified by modular filters
     }
 
     status = versions_->LogAndApply(cfd, *cfd->GetLatestMutableCFOptions(),

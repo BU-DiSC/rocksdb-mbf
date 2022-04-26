@@ -200,6 +200,12 @@ class CompactionJob {
   bool measure_io_stats_;
   // Stores the Slices that designate the boundaries for each subcompaction
   std::vector<Slice> boundaries_;
+
+  double reallocated_prefetch_filter_block_size_; // modified by modular filters
+  double total_num_reads_; // modified by modular filters
+  double total_num_tps_; // modified by modular filters
+  uint64_t total_involved_entries_; // modified by modular filters;
+  
   // Stores the approx size of keys covered in the range of each subcompaction
   std::vector<uint64_t> sizes_;
   Env::WriteLifeTimeHint write_hint_;

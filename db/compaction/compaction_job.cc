@@ -356,6 +356,11 @@ CompactionJob::CompactionJob(
                                     db_options_.enable_thread_tracking);
   ThreadStatusUtil::SetThreadOperation(ThreadStatus::OP_COMPACTION);
   ReportStartedCompaction(compaction);
+
+  reallocated_prefetch_filter_block_size_ = 0.0; // modified by modular filters
+  total_num_reads_ = 0.0;// modified by modular filters
+  total_num_tps_ = 0.0;// modified by modular filters
+  total_involved_entries_ = 0; // modified by modular filters
 }
 
 CompactionJob::~CompactionJob() {
@@ -440,6 +445,51 @@ void CompactionJob::Prepare() {
     constexpr uint64_t size = 0;
 
     compact_->sub_compact_states.emplace_back(c, start, end, size);
+  }
+
+  //modified for modular filters
+  int start_lvl = c->start_level();
+  int out_lvl = c->output_level();
+
+  FileMetaData* meta = nullptr;
+  float prefetch_bpk = (static_cast<BlockBasedTableOptions*>(c->column_family_data()->ioptions()->table_factory->GetOptions()))->prefetch_bpk;
+  // Add the starting and/or ending key of certain input files as a potential
+  // boundary
+  for (size_t lvl_idx = 0; lvl_idx < c->num_input_levels(); lvl_idx++) {
+    int lvl = c->level(lvl_idx);
+    if (lvl >= start_lvl && lvl <= out_lvl) {
+      const LevelFilesBrief* flevel = c->input_levels(lvl_idx);
+      size_t num_files = flevel->num_files;
+
+      if (num_files == 0) {
+        continue;
+      }
+
+      if (lvl == 0) {
+        // For level 0 add the starting and ending key of each file since the
+        // files may have greatly differing key ranges (not range-partitioned)
+        for (size_t i = 0; i < num_files; i++) {
+          meta = flevel->files[i].file_metadata;
+          if(meta != nullptr){
+            reallocated_prefetch_filter_block_size_ += prefetch_bpk*meta->num_entries;
+            total_num_reads_ += meta->stats.num_reads_sampled.load(std::memory_order_relaxed);
+            total_num_tps_ += meta->stats.num_tps.load(std::memory_order_relaxed);
+            total_involved_entries_ += meta->num_entries;
+          }
+        }
+      } else {
+        for (size_t i = 0; i < num_files; i++) {
+          meta = flevel->files[i].file_metadata;
+          if(meta != nullptr){
+            reallocated_prefetch_filter_block_size_ += meta->prefetch_bpk*meta->num_entries;
+            total_num_reads_ += meta->stats.num_reads_sampled.load(std::memory_order_relaxed);
+            total_num_tps_ += meta->stats.num_tps.load(std::memory_order_relaxed);
+            total_involved_entries_ += meta->num_entries;
+          }
+        }
+        
+      }
+    }
   }
 }
 
@@ -1028,6 +1078,9 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
   }
   const auto& c_iter_stats = c_iter->iter_stats();
 
+  float num_reads = 0; // modified for modular filters
+  float num_tps = 0; // modified for modular filters
+
   std::unique_ptr<SstPartitioner> partitioner =
       sub_compact->compaction->output_level() == 0
           ? nullptr
@@ -1126,6 +1179,9 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
                                           next_key);
       RecordDroppedKeys(range_del_out_stats,
                         &sub_compact->compaction_job_stats);
+
+      num_reads = 0.0;  // modified for modular filters
+      num_tps = 0.0;  // modified for modular filters
     }
   }
 
@@ -1282,6 +1338,14 @@ Status CompactionJob::FinishCompactionOutputFile(
   assert(sub_compact->outfile);
   assert(sub_compact->builder != nullptr);
   assert(sub_compact->current_output() != nullptr);
+
+  // added for modular filters 
+  BlockBasedTableOptions* table_opt = static_cast<BlockBasedTableOptions*>(sub_compact->compaction->column_family_data()->ioptions()->table_factory->GetOptions());
+  bool bpk_bounded = table_opt->bpk_bounded;
+  double prefetch_bpk = table_opt->prefetch_bpk;
+  bool adaptive_prefetch_bpk = table_opt->adaptive_prefetch_modular_filters;
+  double total_bpk = (table_opt->filter_policy != nullptr) ? table_opt->filter_policy->GetBitsPerKey() : 0.0;
+
 
   uint64_t output_number = sub_compact->current_output()->meta.fd.GetNumber();
   assert(output_number != 0);
@@ -1460,6 +1524,22 @@ Status CompactionJob::FinishCompactionOutputFile(
   }
   const uint64_t current_entries = sub_compact->builder->NumEntries();
   if (s.ok()) {
+    // added for modular filters
+    if(adaptive_prefetch_bpk && table_opt->modular_filters){
+        meta->prefetch_bpk = CalculatePrefetchBPK(num_reads, num_tps, current_entries);
+        if(bpk_bounded){
+           if(meta->prefetch_bpk > total_bpk){
+              meta->prefetch_bpk = total_bpk;
+           }
+        }
+    }else{
+        meta->prefetch_bpk = prefetch_bpk;
+    }
+    meta->prefetch_bpk = sub_compact->builder->ResetPrefetchBPK(meta->prefetch_bpk);
+    meta->stats.num_reads_sampled.store(num_reads, std::memory_order_relaxed);
+    meta->stats.num_tps.store(num_tps, std::memory_order_relaxed);
+    meta->num_entries = current_entries;
+
     s = sub_compact->builder->Finish();
   } else {
     sub_compact->builder->Abandon();
