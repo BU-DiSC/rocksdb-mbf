@@ -160,6 +160,7 @@ LIB_SOURCES =                                                   \
   table/block_based/filter_policy.cc                            \
   table/block_based/flush_block_policy.cc                       \
   table/block_based/full_filter_block.cc                        \
+  table/block_based/modular_filter_block.cc                     \
   table/block_based/hash_index_reader.cc                        \
   table/block_based/index_builder.cc                            \
   table/block_based/index_reader_common.cc                      \

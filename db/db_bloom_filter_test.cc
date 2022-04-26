@@ -744,13 +744,13 @@ class LevelAndStyleCustomFilterPolicy : public FilterPolicy {
   const char* Name() const override { return policy_fifo_->Name(); }
 
   FilterBitsBuilder* GetBuilderWithContext(
-      const FilterBuildingContext& context) const override {
+      const FilterBuildingContext& context, double bpk, bool prefetch) const override { // modified for modular filter
     if (context.compaction_style == kCompactionStyleFIFO) {
-      return policy_fifo_->GetBuilderWithContext(context);
+      return policy_fifo_->GetBuilderWithContext(context, bpk, prefetch);
     } else if (context.level_at_creation == 0) {
-      return policy_l0_other_->GetBuilderWithContext(context);
+      return policy_l0_other_->GetBuilderWithContext(context, bpk, prefetch);
     } else {
-      return policy_otherwise_->GetBuilderWithContext(context);
+      return policy_otherwise_->GetBuilderWithContext(context, bpk, prefetch);
     }
   }
 

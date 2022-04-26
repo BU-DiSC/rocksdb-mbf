@@ -175,6 +175,7 @@ struct FileMetaData {
   uint64_t compensated_file_size = 0;
   // These values can mutate, but they can only be read or written from
   // single-threaded LogAndApply thread
+  float prefetch_bpk = 0.0; // prefetching bpk, modified by modular filter
   uint64_t num_entries = 0;     // the number of entries.
   uint64_t num_deletions = 0;   // the number of deletion entries.
   uint64_t raw_key_size = 0;    // total uncompressed key size.
@@ -216,7 +217,8 @@ struct FileMetaData {
                const SequenceNumber& largest_seq, bool marked_for_compact,
                uint64_t oldest_blob_file, uint64_t _oldest_ancester_time,
                uint64_t _file_creation_time, const std::string& _file_checksum,
-               const std::string& _file_checksum_func_name)
+               const std::string& _file_checksum_func_name,
+               uint32_t _num_entries = 0, uint64_t _num_reads = 0, uint64_t _num_tps = 0, float _prefetch_bpk = 0.0)
       : fd(file, file_path_id, file_size, smallest_seq, largest_seq),
         smallest(smallest_key),
         largest(largest_key),
@@ -226,6 +228,10 @@ struct FileMetaData {
         file_creation_time(_file_creation_time),
         file_checksum(_file_checksum),
         file_checksum_func_name(_file_checksum_func_name) {
+           num_entries = _num_entries;
+    stats.num_reads_sampled.store(_num_reads, std::memory_order_relaxed);
+    stats.num_tps.store(_num_tps, std::memory_order_relaxed);
+    prefetch_bpk = _prefetch_bpk; // modified by modular filters
     TEST_SYNC_POINT_CALLBACK("FileMetaData::FileMetaData", this);
   }
 
@@ -392,14 +398,15 @@ class VersionEdit {
                const SequenceNumber& largest_seqno, bool marked_for_compaction,
                uint64_t oldest_blob_file_number, uint64_t oldest_ancester_time,
                uint64_t file_creation_time, const std::string& file_checksum,
-               const std::string& file_checksum_func_name) {
+               const std::string& file_checksum_func_name,
+               uint32_t num_entries, uint64_t num_reads, uint64_t num_tps, float prefetch_bpk) {
     assert(smallest_seqno <= largest_seqno);
     new_files_.emplace_back(
         level, FileMetaData(file, file_path_id, file_size, smallest, largest,
                             smallest_seqno, largest_seqno,
                             marked_for_compaction, oldest_blob_file_number,
                             oldest_ancester_time, file_creation_time,
-                            file_checksum, file_checksum_func_name));
+                            file_checksum, file_checksum_func_name,num_entries, num_reads, num_tps, prefetch_bpk)); // modified by modular filters
   }
 
   void AddFile(int level, const FileMetaData& f) {

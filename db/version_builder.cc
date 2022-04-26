@@ -63,7 +63,10 @@ class VersionBuilder::Rep {
   // kLevel0 -- NewestFirstBySeqNo
   // kLevelNon0 -- BySmallestKey
   struct FileComparator {
-    enum SortMethod { kLevel0 = 0, kLevelNon0 = 1, } sort_method;
+    enum SortMethod {
+      kLevel0 = 0,
+      kLevelNon0 = 1,
+    } sort_method;
     const InternalKeyComparator* internal_comparator;
 
     FileComparator() : internal_comparator(nullptr) {}
@@ -880,7 +883,7 @@ class VersionBuilder::Rep {
       auto added_end = added_files.end();
       while (added_iter != added_end || base_iter != base_end) {
         if (base_iter == base_end ||
-                (added_iter != added_end && cmp(*added_iter, *base_iter))) {
+            (added_iter != added_end && cmp(*added_iter, *base_iter))) {
           MaybeAddFile(vstorage, level, *added_iter++);
         } else {
           MaybeAddFile(vstorage, level, *base_iter++);
@@ -962,6 +965,27 @@ class VersionBuilder::Rep {
 
         auto* file_meta = files_meta[file_idx].first;
         int level = files_meta[file_idx].second;
+        // added by modular filiter
+        BlockBasedTableOptions* table_options =
+            static_cast<BlockBasedTableOptions*>(
+                ioptions_->table_factory->GetOptions());
+        ModularFilterReadType mfilter_read_filters = kFirstFilterBlock;
+        if (table_options->modular_filters &&
+            !table_options->partition_filters) {
+          if (is_initial_load) {
+            file_meta->prefetch_bpk = table_options->prefetch_bpk;
+          }
+          mfilter_read_filters = TableCache::chooseReadType(
+              file_meta->stats.num_reads_sampled.load(
+                  std::memory_order_relaxed),
+              file_meta->stats.num_tps.load(std::memory_order_relaxed),
+              file_meta->prefetch_bpk,
+              (table_options->filter_policy
+                   ? table_options->filter_policy->GetBitsPerKey()
+                   : 0),
+              table_options->require_all_modules,
+              table_options->allow_whole_filter_skipping);
+        }
         statuses[file_idx] = table_cache_->FindTable(
             ReadOptions(), file_options_,
             *(base_vstorage_->InternalComparator()), file_meta->fd,

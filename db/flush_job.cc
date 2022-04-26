@@ -454,7 +454,11 @@ Status FlushJob::WriteLevel0Table() {
                    meta_.fd.smallest_seqno, meta_.fd.largest_seqno,
                    meta_.marked_for_compaction, meta_.oldest_blob_file_number,
                    meta_.oldest_ancester_time, meta_.file_creation_time,
-                   meta_.file_checksum, meta_.file_checksum_func_name);
+                   meta_.file_checksum, meta_.file_checksum_func_name,
+                   meta_.num_entries,
+                   meta_.stats.num_reads_sampled.load(std::memory_order_relaxed),
+                   meta_.stats.num_tps.load(std::memory_order_relaxed),
+                   (static_cast<BlockBasedTableOptions*>(cfd_->ioptions()->table_factory->GetOptions()))->prefetch_bpk); // modified by modular filters
 
     edit_->SetBlobFileAdditions(std::move(blob_file_additions));
   }
