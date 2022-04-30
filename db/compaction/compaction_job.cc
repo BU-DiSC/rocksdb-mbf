@@ -1176,7 +1176,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
       CompactionIterationStats range_del_out_stats;
       status = FinishCompactionOutputFile(input->status(), sub_compact,
                                           &range_del_agg, &range_del_out_stats,
-                                          next_key);
+                                          next_key, static_cast<uint64_t>(round(num_reads)), static_cast<uint64_t>(round(num_tps))); // added for modular filters
       RecordDroppedKeys(range_del_out_stats,
                         &sub_compact->compaction_job_stats);
 
@@ -1331,7 +1331,7 @@ Status CompactionJob::FinishCompactionOutputFile(
     const Status& input_status, SubcompactionState* sub_compact,
     CompactionRangeDelAggregator* range_del_agg,
     CompactionIterationStats* range_del_out_stats,
-    const Slice* next_table_min_key /* = nullptr */) {
+    const Slice* next_table_min_key /* = nullptr */, uint64_t num_reads, uint64_t num_tps) { // added for modular filters
   AutoThreadOperationStageUpdater stage_updater(
       ThreadStatus::STAGE_COMPACTION_SYNC_FILE);
   assert(sub_compact != nullptr);

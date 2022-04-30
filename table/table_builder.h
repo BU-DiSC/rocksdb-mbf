@@ -40,7 +40,7 @@ struct TableReaderOptions {
                            _internal_comparator, _skip_filters, _immortal,
                            _force_direct_prefetch, _level,
                            0 /* _largest_seqno */, _block_cache_tracer,
-                           _max_file_size_for_l0_meta_pin, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // added for modular filters 
+                           _max_file_size_for_l0_meta_pin, _mfilter_read_filters) // added for modular filters 
                            {}
 
   // @param skip_filters Disables loading/accessing the filter block
@@ -52,8 +52,8 @@ struct TableReaderOptions {
                      bool _force_direct_prefetch, int _level,
                      SequenceNumber _largest_seqno,
                      BlockCacheTracer* const _block_cache_tracer,
-                     size_t _max_file_size_for_l0_meta_pin),
-                     mfilter_read_filters(_mfilter_read_filters) {}  // added for modular filters
+                     size_t _max_file_size_for_l0_meta_pin,
+                     ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // added for modular filters
       : ioptions(_ioptions),
         prefix_extractor(_prefix_extractor),
         env_options(_env_options),
@@ -64,7 +64,8 @@ struct TableReaderOptions {
         level(_level),
         largest_seqno(_largest_seqno),
         block_cache_tracer(_block_cache_tracer),
-        max_file_size_for_l0_meta_pin(_max_file_size_for_l0_meta_pin) {}
+        max_file_size_for_l0_meta_pin(_max_file_size_for_l0_meta_pin),
+                     mfilter_read_filters(_mfilter_read_filters) {}  // added for modular filters
 
   const ImmutableCFOptions& ioptions;
   const SliceTransform* prefix_extractor;
@@ -72,7 +73,7 @@ struct TableReaderOptions {
   const InternalKeyComparator& internal_comparator;
   // This is only used for BlockBasedTable (reader)
   bool skip_filters;
-  // Whether the table will be valid as long as the DB is open
+  // Whether the table will be valid_pen
   bool immortal;
   // When data prefetching is needed, even if direct I/O is off, read data to
   // fetch into RocksDB's buffer, rather than relying

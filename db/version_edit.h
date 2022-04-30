@@ -155,6 +155,9 @@ struct FileSampledStats {
 
   // number of user reads to this file.
   mutable std::atomic<uint64_t> num_reads_sampled;
+
+  // number of user reads to this file.  added for modular filters
+  mutable std::atomic<uint64_t> num_tps;
 };
 
 struct FileMetaData {

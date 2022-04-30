@@ -111,6 +111,7 @@ class CompactionJob {
   struct SubcompactionState;
 
   void AggregateStatistics();
+  float CalculatePrefetchBPK(uint32_t agg_num_reads, uint32_t agg_num_tps, uint32_t num_entries); // added for modular filters
 
   // Generates a histogram representing potential divisions of key ranges from
   // the input. It adds the starting and/or ending keys of certain input files
@@ -130,7 +131,7 @@ class CompactionJob {
       const Status& input_status, SubcompactionState* sub_compact,
       CompactionRangeDelAggregator* range_del_agg,
       CompactionIterationStats* range_del_out_stats,
-      const Slice* next_table_min_key = nullptr);
+      const Slice* next_table_min_key = nullptr, uint64_t num_reads=0, uint64_t num_tps=0); //added for modular filters
   Status InstallCompactionResults(const MutableCFOptions& mutable_cf_options);
   void RecordCompactionIOStats();
   Status OpenCompactionOutputFile(SubcompactionState* sub_compact);
