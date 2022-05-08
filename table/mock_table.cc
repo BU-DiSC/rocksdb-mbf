@@ -234,7 +234,7 @@ Status MockTableFactory::NewTableReader(
     const TableReaderOptions& /*table_reader_options*/,
     std::unique_ptr<RandomAccessFileReader>&& file, uint64_t /*file_size*/,
     std::unique_ptr<TableReader>* table_reader,
-    bool /*prefetch_index_and_filter_in_cache*/) const {
+    bool /*prefetch_index_and_filter_in_cache*/, ModularFilterMeta /*curr_modular_filter_meta*/) const { // modified for modular filters
   uint32_t id;
   Status s = GetIDFromFile(file.get(), &id);
   if (!s.ok()) {

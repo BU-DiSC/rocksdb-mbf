@@ -783,7 +783,7 @@ class TestingContextCustomFilterPolicy
   }
 
   FilterBitsBuilder* GetBuilderWithContext(
-      const FilterBuildingContext& context) const override {
+      const FilterBuildingContext& context, double bpk, bool prefetch) const override { // modified for modular filters
     test_report_ += "cf=";
     test_report_ += context.column_family_name;
     test_report_ += ",cs=";
@@ -793,7 +793,7 @@ class TestingContextCustomFilterPolicy
     test_report_ += std::to_string(context.level_at_creation);
     test_report_ += "\n";
 
-    return LevelAndStyleCustomFilterPolicy::GetBuilderWithContext(context);
+    return LevelAndStyleCustomFilterPolicy::GetBuilderWithContext(context, bpk, prefetch);
   }
 
   std::string DumpTestReport() {

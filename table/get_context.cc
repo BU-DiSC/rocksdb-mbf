@@ -46,7 +46,7 @@ GetContext::GetContext(
     MergeContext* merge_context, bool do_merge,
     SequenceNumber* _max_covering_tombstone_seq, SystemClock* clock,
     SequenceNumber* seq, PinnedIteratorsManager* _pinned_iters_mgr,
-    ReadCallback* callback, bool* is_blob_index, uint64_t tracing_get_id)
+    ReadCallback* callback, bool* is_blob_index, uint64_t tracing_get_id) 
     : ucmp_(ucmp),
       merge_operator_(merge_operator),
       logger_(logger),
@@ -65,7 +65,7 @@ GetContext::GetContext(
       callback_(callback),
       do_merge_(do_merge),
       is_blob_index_(is_blob_index),
-      tracing_get_id_(tracing_get_id) {
+      tracing_get_id_(tracing_get_id){
   if (seq_) {
     *seq_ = kMaxSequenceNumber;
   }
@@ -83,7 +83,7 @@ GetContext::GetContext(
     : GetContext(ucmp, merge_operator, logger, statistics, init_state, user_key,
                  pinnable_val, nullptr, value_found, merge_context, do_merge,
                  _max_covering_tombstone_seq, clock, seq, _pinned_iters_mgr,
-                 callback, is_blob_index, tracing_get_id) {}
+                 callback, is_blob_index, tracing_get_id) {} 
 
 // Called from TableCache::Get and Table::Get when file/block in which
 // key may exist are not there in TableCache/BlockCache respectively. In this

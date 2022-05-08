@@ -58,6 +58,18 @@ enum ModularFilterReadType : char {
   kBothFilterBlocks = 0x3,
 };
 
+struct ModularFilterMeta {
+    double num_reads = 0.0;
+    double num_tps = 0.0;
+    uint64_t num_entries = 0;
+    float bpk = 0.0;
+    ModularFilterMeta(){
+	num_reads = 0.0;
+	num_tps = 0.0;
+	bpk = 0.0;
+    }
+};
+
 // `PinningTier` is used to specify which tier of block-based tables should
 // be affected by a block cache pinning setting (see
 // `MetadataCacheOptions` below).
@@ -705,7 +717,7 @@ class TableFactory : public Customizable {
       const ReadOptions& ro, const TableReaderOptions& table_reader_options,
       std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
       std::unique_ptr<TableReader>* table_reader,
-      bool prefetch_index_and_filter_in_cache) const = 0;
+      bool prefetch_index_and_filter_in_cache, ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta()) const = 0;
 
   // Return a table builder to write to a file for this table type.
   //
@@ -731,6 +743,9 @@ class TableFactory : public Customizable {
 
   // Return is delete range supported
   virtual bool IsDeleteRangeSupported() const { return false; }
+
+  // modified by modular filter
+  virtual float GetPrefetchBPK() { return 0.0;}
 };
 
 #ifndef ROCKSDB_LITE

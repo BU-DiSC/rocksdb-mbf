@@ -17,12 +17,12 @@ inline bool should_sample_file_read() {
 }
 
 inline void sample_file_read_inc(FileMetaData* meta) { // modified by modular filters
-  meta->stats.num_reads_sampled.fetch_add(kFileReadRate, // was KFileReadSampleRate
+  meta->stats.num_reads_sampled.fetch_add(kFileReadSampleRate, // was KFileReadSampleRate
                                           std::memory_order_relaxed);
 }
 
 inline void file_num_tp_inc(FileMetaData* meta) { // modified by modular filters
-  meta->stats.num_tps.fetch_add(kFileReadRate,
+  meta->stats.num_tps_sampled.fetch_add(kFileReadSampleRate,
                                           std::memory_order_relaxed);
 }
 }  // namespace ROCKSDB_NAMESPACE

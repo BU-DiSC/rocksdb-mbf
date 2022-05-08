@@ -1415,7 +1415,7 @@ Status DBImpl::WriteLevel0TableForRecovery(int job_id, ColumnFamilyData* cfd,
                   meta.oldest_ancester_time, meta.file_creation_time,
                   meta.file_checksum, meta.file_checksum_func_name, meta.num_entries,
                   meta.stats.num_reads_sampled.load(std::memory_order_relaxed),
-                  meta.stats.num_tps.load(std::memory_order_relaxed),
+                  meta.stats.num_tps_sampled.load(std::memory_order_relaxed),
                   meta.prefetch_bpk); // modified by modular filters
 
     for (const auto& blob : blob_file_additions) {

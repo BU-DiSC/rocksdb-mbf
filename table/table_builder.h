@@ -150,7 +150,7 @@ class TableBuilder {
   // REQUIRES: Either Finish() or Abandon() has been called.
   virtual ~TableBuilder() {}
 
-  virtual float ResetPrefetchBPK(float /* bpk */) {return 0.0;} // modified by modular filters
+  virtual float ResetPrefetchBPK(const ModularFilterMeta & /* curr_modular_filter_meta */, const ModularFilterMeta & /* total_modular_filter_meta */, double /* reallocated_prefetch_filter_block_size */) {return 0.0;} // modified by modular filters
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.

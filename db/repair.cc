@@ -610,7 +610,7 @@ class Repairer {
             table->meta.oldest_blob_file_number,
             table->meta.oldest_ancester_time, table->meta.file_creation_time,
             table->meta.file_checksum, table->meta.file_checksum_func_name,
-            table->meta.num_entries, table->meta.stats.num_reads_sampled.load(std::memory_order_relaxed), table->meta.stats.num_tps.load(std::memory_order_relaxed), table->meta.prefetch_bpk); // modified by modular filters
+            table->meta.num_entries, table->meta.stats.num_reads_sampled.load(std::memory_order_relaxed), table->meta.stats.num_tps_sampled.load(std::memory_order_relaxed), table->meta.prefetch_bpk); // modified by modular filters
       }
       assert(next_file_number_ > 0);
       vset_.MarkFileNumberUsed(next_file_number_ - 1);

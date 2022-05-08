@@ -42,7 +42,7 @@ class FilterBlockReaderCommon : public FilterBlockReader {
                                 GetContext* get_context,
                                 BlockCacheLookupContext* lookup_context,
                                 CachableEntry<TBlocklike>* filter_block,
-                                 bool prefetch_filter=false, bool* in_cache=nullptr); /* prefetch_filter arg added for modular filter */
+                                 bool prefetch_filter=false, bool* in_cache=nullptr); /* prefetch_filter arg modified by modular filter */
 
   const BlockBasedTable* table() const { return table_; }
   const SliceTransform* table_prefix_extractor() const;
@@ -52,14 +52,14 @@ class FilterBlockReaderCommon : public FilterBlockReader {
   Status GetOrReadFilterBlock(bool no_io, GetContext* get_context,
                               BlockCacheLookupContext* lookup_context,
                               CachableEntry<TBlocklike>* filter_block,
-                              bool prefetch_filter=false, bool* in_cache=nullptr) const; /* prefetch_filter arg added for modular filter */) const;
+                              bool prefetch_filter=false, bool* in_cache=nullptr) const; /* prefetch_filter arg modified by modular filter */
 
   size_t ApproximateFilterBlockMemoryUsage() const;
 
  private:
   const BlockBasedTable* table_;
   CachableEntry<TBlocklike> filter_block_;
-  CachableEntry<TBlocklike> prefetch_filter_block_; // added for modular filter
+  CachableEntry<TBlocklike> prefetch_filter_block_; // modified by modular filter
 };
 
 }  // namespace ROCKSDB_NAMESPACE

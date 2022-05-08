@@ -38,6 +38,7 @@
 #include "rocksdb/compaction_job_stats.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
+#include "rocksdb/table.h" // modified by modular filters
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/transaction_log.h"
 #include "table/scoped_arena_iterator.h"
@@ -111,8 +112,6 @@ class CompactionJob {
   struct SubcompactionState;
 
   void AggregateStatistics();
-  float CalculatePrefetchBPK(uint32_t agg_num_reads, uint32_t agg_num_tps, uint32_t num_entries); // added for modular filters
-
   // Generates a histogram representing potential divisions of key ranges from
   // the input. It adds the starting and/or ending keys of certain input files
   // to the working set and then finds the approximate size of data in between
@@ -201,11 +200,8 @@ class CompactionJob {
   bool measure_io_stats_;
   // Stores the Slices that designate the boundaries for each subcompaction
   std::vector<Slice> boundaries_;
-
   double reallocated_prefetch_filter_block_size_; // modified by modular filters
-  double total_num_reads_; // modified by modular filters
-  double total_num_tps_; // modified by modular filters
-  uint64_t total_involved_entries_; // modified by modular filters;
+  ModularFilterMeta total_modular_filter_meta_; // modified by modular filters
   
   // Stores the approx size of keys covered in the range of each subcompaction
   std::vector<uint64_t> sizes_;

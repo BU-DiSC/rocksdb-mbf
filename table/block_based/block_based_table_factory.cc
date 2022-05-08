@@ -479,7 +479,42 @@ Status BlockBasedTableFactory::NewTableReader(
     const ReadOptions& ro, const TableReaderOptions& table_reader_options,
     std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
     std::unique_ptr<TableReader>* table_reader,
-    bool prefetch_index_and_filter_in_cache) const {
+    bool prefetch_index_and_filter_in_cache, ModularFilterMeta curr_modular_filter_meta ) const {
+  ModularFilterReadType mfilter_read_filters = kFirstFilterBlock;
+  if(table_options_.modular_filters && !table_options_.partition_filters){
+      float alpha = curr_modular_filter_meta.num_tps/curr_modular_filter_meta.num_reads;
+      float total_bpk = table_options_.filter_policy ? table_options_.filter_policy->GetBitsPerKey() : 0; 
+      if(curr_modular_filter_meta.bpk == 0){
+	  if(!table_options_.require_all_modules || total_bpk == 0 ){
+              mfilter_read_filters = kNoFilterBlock;
+	  }else{
+	      mfilter_read_filters = kSecondFilterBlock;
+	  }
+      }else{
+          // if(curr_modular_filter_meta.num_reads==0){
+          //   return kNoFilterBlock;
+          // }
+          if (alpha > 0.8 && table_options_.allow_whole_filter_skipping) {
+              mfilter_read_filters = kNoFilterBlock;
+          }
+          if (total_bpk <= curr_modular_filter_meta.bpk) {
+              mfilter_read_filters = kFirstFilterBlock;
+          }
+          if (!table_options_.require_all_modules) {
+              int second_bpk = int(total_bpk - curr_modular_filter_meta.bpk);
+              float fp[11] = {1,      1,      0.393,  0.237,  0.147,  0.092,
+                      0.0561, 0.0347, 0.0216, 0.0133, 0.00819};
+              float expIO = alpha + (1 - alpha) * fp[second_bpk];
+              if (expIO > 0.5) {
+                  mfilter_read_filters = kFirstFilterBlock;
+              } else {
+                  mfilter_read_filters = kBothFilterBlocks;
+              }
+          } else {
+              mfilter_read_filters = kBothFilterBlocks;
+          }
+      }
+  }
   return BlockBasedTable::Open(
       ro, table_reader_options.ioptions, table_reader_options.env_options,
       table_options_, table_reader_options.internal_comparator, std::move(file),
@@ -489,7 +524,8 @@ Status BlockBasedTableFactory::NewTableReader(
       table_reader_options.largest_seqno,
       table_reader_options.force_direct_prefetch, &tail_prefetch_stats_,
       table_reader_options.block_cache_tracer,
-      table_reader_options.max_file_size_for_l0_meta_pin);
+      table_reader_options.max_file_size_for_l0_meta_pin,
+      mfilter_read_filters);
 }
 
 TableBuilder* BlockBasedTableFactory::NewTableBuilder(

@@ -140,7 +140,7 @@ class TableCache {
                    bool skip_filters = false, int level = -1,
                    bool prefetch_index_and_filter_in_cache = true,
                    size_t max_file_size_for_l0_meta_pin = 0,
-                  ModularFilterReadType mfilter_read_filters = kFirstFilterBlock);
+                  ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta()); // modified by modular filters
 
   // Get TableReader from a cache handle.
   TableReader* GetTableReaderFromHandle(Cache::Handle* handle);
@@ -196,9 +196,6 @@ class TableCache {
     }
   }
 
-  // determine the read policy for modular filter added for modular filter
-  static ModularFilterReadType chooseReadType(uint64_t num_reads, uint64_t num_tps, float prefetch_bpk, float total_bpk, bool require_all_mods, bool allow_whole_filter_skipping);
-
  private:
   // Build a table reader
   Status GetTableReader(const ReadOptions& ro, const FileOptions& file_options,
@@ -210,7 +207,7 @@ class TableCache {
                         bool skip_filters = false, int level = -1,
                         bool prefetch_index_and_filter_in_cache = true,
                         size_t max_file_size_for_l0_meta_pin = 0,
-                        ModularFilterReadType mfilter_read_filters = kFirstFilterBlock);
+                        ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta());
 
   // Create a key prefix for looking up the row cache. The prefix is of the
   // format row_cache_id + fd_number + seq_no. Later, the user key can be

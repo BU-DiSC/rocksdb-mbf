@@ -391,7 +391,7 @@ void FilterBench::Go() {
         builder.reset(
             static_cast_with_check<BuiltinFilterBitsBuilder>(GetBuilder()));
       }
-      for (uint32_t i = 0; i < keys_to_add; ++i) {
+      for (uint32_t i = 0; i < keys_to_add; ++i) { // modified for modular filters
         builder->AddKey(kms_[0].Get(filter_id, i));
       }
       info.filter_ = builder->Finish(&info.owner_);
@@ -455,7 +455,7 @@ void FilterBench::Go() {
     uint64_t fps = 0;
     for (uint32_t i = 0; i < infos_.size(); ++i) {
       FilterInfo &info = infos_[i];
-      for (uint32_t j = 0; j < info.keys_added_; ++j) {
+      for (uint32_t j = 0; j < info.keys_added_; ++j) { // modified for modular filters
         if (FLAGS_use_plain_table_bloom) {
           uint32_t hash = GetSliceHash(kms_[0].Get(info.filter_id_, j));
           ALWAYS_ASSERT(info.plain_table_bloom_->MayContainHash(hash));
@@ -638,7 +638,7 @@ double FilterBench::RandomQueryTest(uint32_t inside_threshold, bool dry_run,
           dry_run_hash += dry_run_hash_fn(batch_slices[i]);
         }
       } else {
-        info.reader_->MayMatch(batch_size, batch_slice_ptrs.get(),
+        info.reader_->MayMatch(batch_size, batch_slice_ptrs.get(), 
                                batch_results.get());
       }
       for (uint32_t i = 0; i < batch_size; ++i) {

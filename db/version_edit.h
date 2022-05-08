@@ -146,10 +146,11 @@ struct FileDescriptor {
 };
 
 struct FileSampledStats {
-  FileSampledStats() : num_reads_sampled(0) {}
+  FileSampledStats() : num_reads_sampled(0), num_tps_sampled(0) {}
   FileSampledStats(const FileSampledStats& other) { *this = other; }
   FileSampledStats& operator=(const FileSampledStats& other) {
     num_reads_sampled = other.num_reads_sampled.load();
+    num_tps_sampled = other.num_tps_sampled.load();
     return *this;
   }
 
@@ -157,7 +158,7 @@ struct FileSampledStats {
   mutable std::atomic<uint64_t> num_reads_sampled;
 
   // number of user reads to this file.  added for modular filters
-  mutable std::atomic<uint64_t> num_tps;
+  mutable std::atomic<uint64_t> num_tps_sampled;
 };
 
 struct FileMetaData {
@@ -233,7 +234,7 @@ struct FileMetaData {
         file_checksum_func_name(_file_checksum_func_name) {
            num_entries = _num_entries;
     stats.num_reads_sampled.store(_num_reads, std::memory_order_relaxed);
-    stats.num_tps.store(_num_tps, std::memory_order_relaxed);
+    stats.num_tps_sampled.store(_num_tps, std::memory_order_relaxed);
     prefetch_bpk = _prefetch_bpk; // modified by modular filters
     TEST_SYNC_POINT_CALLBACK("FileMetaData::FileMetaData", this);
   }

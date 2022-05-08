@@ -148,11 +148,13 @@ class CompactionJobTestBase : public testing::Test {
     SequenceNumber smallest_seqno = kMaxSequenceNumber;
     SequenceNumber largest_seqno = 0;
     uint64_t oldest_blob_file_number = kInvalidBlobFileNumber;
+    uint32_t num_entries = 0; //modified for modular filters
     for (auto kv : contents) {
       ParsedInternalKey key;
       std::string skey;
       std::string value;
       std::tie(skey, value) = kv;
+      num_entries++;
       const Status pik_status =
           ParseInternalKey(skey, &key, true /* log_err_key */);
 
@@ -199,7 +201,7 @@ class CompactionJobTestBase : public testing::Test {
     edit.AddFile(level, file_number, 0, 10, smallest_key, largest_key,
                  smallest_seqno, largest_seqno, false, oldest_blob_file_number,
                  kUnknownOldestAncesterTime, kUnknownFileCreationTime,
-                 kUnknownFileChecksum, kUnknownFileChecksumFuncName);
+                 kUnknownFileChecksum, kUnknownFileChecksumFuncName, num_entries, 0, 0, 0.0); // modified by modular filters
 
     mutex_.Lock();
     EXPECT_OK(

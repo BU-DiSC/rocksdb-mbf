@@ -46,7 +46,7 @@ class FilterBitsBuilder {
   // Add Key to filter, you could use any way to store the key.
   // Such as: storing hashes or original keys
   // Keys are in sorted order and duplicated keys are possible.
-  virtual void AddKey(const Slice& key) = 0;
+  virtual void AddKey(const Slice& key) = 0; 
 
   // Generate the filter using the keys that are added
   // The return value of this function would be the filter bits,
@@ -81,7 +81,7 @@ class FilterBitsReader {
   virtual ~FilterBitsReader() {}
 
   // Check if the entry match the bits in filter
-  virtual bool MayMatch(const Slice& entry) = 0;
+  virtual bool MayMatch(const Slice& entry) = 0; 
 
   // Check if an array of entries match the bits in filter
   virtual void MayMatch(int num_keys, Slice** keys, bool* may_match) {

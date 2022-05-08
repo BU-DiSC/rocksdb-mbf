@@ -38,7 +38,6 @@ struct PerfContextByLevel {
   uint64_t block_cache_hit_count = 0;   // total number of block cache hits
   uint64_t block_cache_miss_count = 0;  // total number of block cache misses
 
-  uint64_t hash_calc = 0; // number of hashing calculation modified by modular filters
   void Reset();  // reset all performance counters to zero
 };
 

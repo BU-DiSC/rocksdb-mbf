@@ -44,25 +44,6 @@ void TransformKey(const Slice & key, size_t index, bool prefetch, Slice & new_ke
 }
 */
 
-uint64_t GenerateNewHashDigest(const Slice & key, uint64_t hash_digest,  bool prefetch){
-    uint64_t h = hash_digest;
-    if(hash_digest == 0){
-      h = GetSliceHash64(key);
-      PERF_COUNTER_ADD(hash_calc, 1);
-    }
-    if(prefetch){
-      return h;
-    }
-    std::string key_str (key.data());
-    uint64_t w = DecodeFixed64((key_str.substr(0, key.size())).c_str()); // COPY FROM XXH64_round(acc, input)
-    h += w*0xC2B2AE3D27D4EB4FULL;
-    h = (h << 31) | (h >> 33);
-    h *=  0x9E3779B185EBCA87ULL;
-    
-
-    return h;
-}
-
 ModularFilterBlockBuilder::ModularFilterBlockBuilder(
     const SliceTransform* _prefix_extractor,
     bool whole_key_filtering,
@@ -113,8 +94,7 @@ void ModularFilterBlockBuilder::Add(const Slice& key) {
 
 // Add key to filter if needed
 inline void ModularFilterBlockBuilder::AddKey(const Slice& key) {
-    uint64_t hash_digest = GetSliceHash64(key); 
-    filter_bits_builder_->AddKey(key, GenerateNewHashDigest(key, hash_digest, prefetch_));
+    filter_bits_builder_->AddKey(key);
 }
 
 // Add prefix to filter if needed
@@ -206,10 +186,9 @@ void ModularFilterBlockReader::NextMayMatch(const Slice& entry, bool no_io, GetC
           return;
         }
 
-        uint64_t h = GenerateNewHashDigest(entry, *(get_context->hash_digest_),  false);
         FilterBitsReader* filter_bits_reader = filter_block.GetValue()->filter_bits_reader();
         if(filter_bits_reader){
-	  next_match = filter_bits_reader->MayMatch(entry, h);
+	  next_match = filter_bits_reader->MayMatch(entry);
         }
 }
 
@@ -307,10 +286,9 @@ bool ModularFilterBlockReader::MayMatch(
 
     assert(prefetch_filter_block.GetValue());
 
-    uint64_t h = GenerateNewHashDigest(entry, *(get_context->hash_digest_),  true);
     FilterBitsReader* const prefetch_filter_bits_reader = prefetch_filter_block.GetValue()->filter_bits_reader();
     if(prefetch_filter_bits_reader){
-      prefetch_match = prefetch_filter_bits_reader->MayMatch(entry, h);
+      prefetch_match = prefetch_filter_bits_reader->MayMatch(entry);
     }  
   }
 
@@ -385,9 +363,9 @@ void ModularFilterBlockReader::MayMatch(
   MultiGetRange filter_range(*range, range->begin(), range->end());
   for (auto iter = filter_range.begin(); iter != filter_range.end(); ++iter) {
     if (!prefix_extractor) {
-      keys[num_keys++] = &iter->ukey;
-    } else if (prefix_extractor->InDomain(iter->ukey)) {
-      prefixes.emplace_back(prefix_extractor->Transform(iter->ukey));
+      keys[num_keys++] = &iter->ukey_without_ts;
+    } else if (prefix_extractor->InDomain(iter->ukey_without_ts)) {
+      prefixes.emplace_back(prefix_extractor->Transform(iter->ukey_without_ts));
       keys[num_keys++] = &prefixes.back();
     } else {
       filter_range.SkipKey(iter);
@@ -395,10 +373,7 @@ void ModularFilterBlockReader::MayMatch(
   }
 
   bool prefetch_match = false;
-  uint64_t* hash_digests = new uint64_t[num_keys];
-    for(int i = 0; i < num_keys; i++){
-      hash_digests[i] = GetSliceHash64(*keys[i]);
-    }
+  
   if((mfilter_read_filters == ModularFilterReadType::kFirstFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){
     const Status prefetch_s = GetOrReadFilterBlock(no_io, range->begin()->get_context,
                                           lookup_context, &prefetch_filter_block, true);
@@ -411,12 +386,7 @@ void ModularFilterBlockReader::MayMatch(
     FilterBitsReader* const prefetch_filter_bits_reader = prefetch_filter_block.GetValue()->filter_bits_reader();
     
     if (prefetch_filter_bits_reader) {
-            PERF_COUNTER_ADD(hash_calc, num_keys);
-          for(int i = 0; i < num_keys; i++){
-            
-            hash_digests[i] = GenerateNewHashDigest(*keys[i], GetSliceHash64(*keys[i]), true);
-          }
-          prefetch_filter_bits_reader->MayMatch(num_keys, &keys[0], hash_digests, &may_match[0]);
+          prefetch_filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
     }
     int i = 0;
     for (auto iter = filter_range.begin(); iter != filter_range.end(); ++iter) {
@@ -441,15 +411,9 @@ void ModularFilterBlockReader::MayMatch(
 
     FilterBitsReader* const filter_bits_reader = filter_block.GetValue()->filter_bits_reader();
     if(filter_bits_reader){
-      PERF_COUNTER_ADD(hash_calc, num_keys);
-     for(int k = 0; k < num_keys; k++){
-          hash_digests[k] = GenerateNewHashDigest(*keys[k], GetSliceHash64(*keys[k]),  false);
-      } 
-        filter_bits_reader->MayMatch(num_keys, &keys[0], hash_digests, &may_match[0]);
+        filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
     } 
   } 
-  delete hash_digests;
-  hash_digests = nullptr;
  
 
   int i = 0;

@@ -31,7 +31,7 @@ class TestHashFilter : public FilterPolicy {
     }
   }
 
-  bool KeyMayMatch(const Slice& key, const Slice& filter) const override {
+  bool KeyMayMatch(const Slice& key, const Slice& filter) const override { 
     uint32_t h = Hash(key.data(), key.size(), 1);
     for (unsigned int i = 0; i + 4 <= filter.size(); i += 4) {
       if (h == DecodeFixed32(filter.data() + i)) {

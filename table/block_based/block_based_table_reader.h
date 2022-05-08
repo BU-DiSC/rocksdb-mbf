@@ -57,8 +57,8 @@ class BlockBasedTable : public TableReader {
  public:
   static const std::string kFilterBlockPrefix;
   static const std::string kFullFilterBlockPrefix;
-  static const std::string kPrefetchModularFilterBlockPrefix;
-  static const std::string kModularFilterBlockPrefix;
+  static const std::string kPrefetchModularFilterBlockPrefix; // modified by modular filters
+  static const std::string kModularFilterBlockPrefix; // modified by modular filters
   static const std::string kPartitionedFilterBlockPrefix;
   // The longest prefix of the cache key used to identify blocks.
   // For Posix files the unique ID is three varints.
@@ -178,8 +178,6 @@ class BlockBasedTable : public TableReader {
   Status VerifyChecksum(const ReadOptions& readOptions,
                         TableReaderCaller caller) override;
                       
-  // added by modular filters
-  void SetModulrFilterReadType(ModularFilterReadType _mfilter_read_filters) override;
 
   ~BlockBasedTable();
 
@@ -300,7 +298,7 @@ class BlockBasedTable : public TableReader {
       const BlockHandle& handle, const UncompressionDict& uncompression_dict,
       CachableEntry<TBlocklike>* block_entry, BlockType block_type,
       GetContext* get_context, BlockCacheLookupContext* lookup_context,
-      BlockContents* contents) const;
+      BlockContents* contents, bool* in_cache=nullptr) const; // modified by modular filters
 
   // Similar to the above, with one crucial difference: it will retrieve the
   // block from the file even if there are no caches configured (assuming the
@@ -312,7 +310,7 @@ class BlockBasedTable : public TableReader {
                        CachableEntry<TBlocklike>* block_entry,
                        BlockType block_type, GetContext* get_context,
                        BlockCacheLookupContext* lookup_context,
-                       bool for_compaction, bool use_cache) const;
+                       bool for_compaction, bool use_cache, bool* in_cache=nullptr) const; // modified by modular filters
 
   void RetrieveMultipleBlocks(
       const ReadOptions& options, const MultiGetRange* batch,
@@ -511,7 +509,7 @@ struct BlockBasedTable::Rep {
   Rep(const ImmutableCFOptions& _ioptions, const EnvOptions& _env_options,
       const BlockBasedTableOptions& _table_opt,
       const InternalKeyComparator& _internal_comparator, bool skip_filters,
-      uint64_t _file_size, int _level, const bool _immortal_table, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock)
+      uint64_t _file_size, int _level, const bool _immortal_table, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // modified by modular filters
       : ioptions(_ioptions),
         env_options(_env_options),
         table_options(_table_opt),
@@ -525,8 +523,11 @@ struct BlockBasedTable::Rep {
         global_seqno(kDisableGlobalSequenceNumber),
         file_size(_file_size),
         level(_level),
-        immortal_table(_immortal_table) {
-  }
+        immortal_table(_immortal_table),
+	mfilter_read_filters(_mfilter_read_filters){ // modified by modular filters
+		prefetch_bpk = table_options.prefetch_bpk;
+  
+	}
   ~Rep() { status.PermitUncheckedError(); }
   const ImmutableCFOptions& ioptions;
   const EnvOptions& env_options;
@@ -542,6 +543,8 @@ struct BlockBasedTable::Rep {
   char compressed_cache_key_prefix[kMaxCacheKeyPrefixSize];
   size_t compressed_cache_key_prefix_size = 0;
   PersistentCacheOptions persistent_cache_options;
+  float prefetch_bpk = 0; // modified by modular filters
+  bool require_next_match = true; //modified by modular filters
 
   // Footer contains the fixed table information
   Footer footer;
@@ -553,12 +556,13 @@ struct BlockBasedTable::Rep {
   enum class FilterType {
     kNoFilter,
     kFullFilter,
-    kModularFilter,
+    kModularFilter, // modified by modular filters
     kBlockFilter,
     kPartitionedFilter,
   };
   FilterType filter_type;
   BlockHandle filter_handle;
+  BlockHandle prefetch_filter_handle; // modified by modular filters
   BlockHandle compression_dict_handle;
 
   std::shared_ptr<const TableProperties> table_properties;
@@ -606,7 +610,7 @@ struct BlockBasedTable::Rep {
   bool index_value_is_full = true;
 
   const bool immortal_table;
-  ModularFilterReadType mfilter_read_filters = ModularFilterReadType::kFirstFilterBlock;
+  ModularFilterReadType mfilter_read_filters = ModularFilterReadType::kFirstFilterBlock; // modified by modular filters
 
   SequenceNumber get_global_seqno(BlockType block_type) const {
     return (block_type == BlockType::kFilter ||

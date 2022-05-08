@@ -93,43 +93,6 @@ void TableCache::ReleaseHandle(Cache::Handle* handle) {
   cache_->Release(handle);
 }
 
-ModularFilterReadType TableCache::chooseReadType(
-    uint64_t num_reads, uint64_t num_tps, float prefetch_bpk, float total_bpk,
-    bool require_all_mods, bool allow_whole_filter_skipping) {
-  float alpha = float(num_tps) / float(num_reads);
-
-  if (prefetch_bpk == 0) {
-    if (!require_all_mods || total_bpk == 0) {
-      return kNoFilterBlock;
-    } else {
-      return kSecondFilterBlock;
-    }
-  } else {
-    // if(num_reads==0){
-    //   return kNoFilterBlock;
-    // }
-    if (alpha > 0.8 && allow_whole_filter_skipping) {
-      return kNoFilterBlock;
-    }
-    if (total_bpk <= prefetch_bpk) {
-      return kFirstFilterBlock;
-    }
-    if (!require_all_mods) {
-      int second_bpk = int(total_bpk - prefetch_bpk);
-      float fp[11] = {1,      1,      0.393,  0.237,  0.147,  0.092,
-                      0.0561, 0.0347, 0.0216, 0.0133, 0.00819};
-      float expIO = alpha + (1 - alpha) * fp[second_bpk];
-      if (expIO > 0.5) {
-        return kFirstFilterBlock;
-      } else {
-        return kBothFilterBlocks;
-      }
-    } else {
-      return kBothFilterBlocks;
-    }
-  }
-}
-
 Status TableCache::GetTableReader(
     const ReadOptions& ro, const FileOptions& file_options,
     const InternalKeyComparator& internal_comparator, const FileDescriptor& fd,
@@ -138,8 +101,8 @@ Status TableCache::GetTableReader(
     const SliceTransform* prefix_extractor, bool skip_filters, int level,
     bool prefetch_index_and_filter_in_cache,
     size_t max_file_size_for_l0_meta_pin,
-    ModularFilterReadType
-        mfilter_read_filters) {  // modified by modular filters
+    ModularFilterMeta
+        curr_modular_filter_meta) {  // modified by modular filters
   std::string fname =
       TableFileName(ioptions_.cf_paths, fd.GetNumber(), fd.GetPathId());
   std::unique_ptr<FSRandomAccessFile> file;
@@ -177,7 +140,7 @@ Status TableCache::GetTableReader(
                            fd.largest_seqno, block_cache_tracer_,
                            max_file_size_for_l0_meta_pin),
         std::move(file_reader), fd.GetFileSize(), table_reader,
-        prefetch_index_and_filter_in_cache);
+        prefetch_index_and_filter_in_cache, curr_modular_filter_meta);
     TEST_SYNC_POINT("TableCache::GetTableReader:0");
   }
   return s;
@@ -195,10 +158,9 @@ Status TableCache::FindTable(
     const InternalKeyComparator& internal_comparator, const FileDescriptor& fd,
     Cache::Handle** handle, const SliceTransform* prefix_extractor,
     const bool no_io, bool record_read_stats, HistogramImpl* file_read_hist,
-    bool skip_filters, int level, bool prefetch_index_and_filter_in_cache,
-    size_t max_file_size_for_l0_meta_pin,
-    ModularFilterReadType
-        mfilter_read_filters) {  // modified by modular filters
+    bool skip_filters, int level, 
+    bool prefetch_index_and_filter_in_cache,
+    size_t max_file_size_for_l0_meta_pin, ModularFilterMeta curr_modular_filter_meta) {  // modified by modular filters
   PERF_TIMER_GUARD_WITH_CLOCK(find_table_nanos, ioptions_.clock);
   uint64_t number = fd.GetNumber();
   Slice key = GetSliceForFileNumber(&number);
@@ -222,7 +184,7 @@ Status TableCache::FindTable(
         ro, file_options, internal_comparator, fd, false /* sequential mode */,
         record_read_stats, file_read_hist, &table_reader, prefix_extractor,
         skip_filters, level, prefetch_index_and_filter_in_cache,
-        max_file_size_for_l0_meta_pin);
+        max_file_size_for_l0_meta_pin, curr_modular_filter_meta); // modified by modular filters
     if (!s.ok()) {
       assert(table_reader == nullptr);
       RecordTick(ioptions_.statistics, NO_FILE_ERRORS);
@@ -262,28 +224,19 @@ InternalIterator* TableCache::NewIterator(
   auto& fd = file_meta.fd;
   table_reader = fd.table_reader;
   if (table_reader == nullptr) {
-    // added by modular filter
-    BlockBasedTableOptions* table_options =
-        static_cast<BlockBasedTableOptions*>(
-            ioptions_.table_factory->GetOptions());
-    ModularFilterReadType mfilter_read_filters = kFirstFilterBlock;
-    if (table_options->modular_filters && !table_options->partition_filters) {
-      mfilter_read_filters = TableCache::chooseReadType(
-          file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed),
-          file_meta.stats.num_tps.load(std::memory_order_relaxed),
-          file_meta.prefetch_bpk,
-          (table_options->filter_policy
-               ? table_options->filter_policy->GetBitsPerKey()
-               : 0),
-          table_options->require_all_modules,
-          table_options->allow_whole_filter_skipping);
-    }
+    // modified by modular filter
+    
+    ModularFilterMeta curr_modular_filter_meta;
+    curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
+
     s = FindTable(
         options, file_options, icomparator, fd, &handle, prefix_extractor,
         options.read_tier == kBlockCacheTier /* no_io */,
         !for_compaction /* record_read_stats */, file_read_hist, skip_filters,
         level, true /* prefetch_index_and_filter_in_cache */,
-        max_file_size_for_l0_meta_pin);
+        max_file_size_for_l0_meta_pin, curr_modular_filter_meta);
     if (s.ok()) {
       table_reader = GetTableReaderFromHandle(handle);
     }
@@ -301,7 +254,7 @@ InternalIterator* TableCache::NewIterator(
       uint64_t num_reads =
           file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
       uint64_t num_tps =
-          file_meta.stats.num_tps.load(std::memory_order_relaxed);
+          file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
       uint64_t num_entries = file_meta.num_entries;
       if (num_reads == 0 || num_entries == 0) {
         result->avg_num_reads = 0;
@@ -484,22 +437,20 @@ Status TableCache::Get(const ReadOptions& options,
   TableReader* t = fd.table_reader;
   Cache::Handle* handle = nullptr;
 
-  BlockBasedTableOptions* table_options = static_cast<BlockBasedTableOptions*>(ioptions_.table_factory->GetOptions());
-  ModularFilterReadType mfilter_read_filters = kFirstFilterBlock;
-  if(table_options->modular_filters && !table_options->partition_filters){
-        mfilter_read_filters = TableCache::chooseReadType(file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed), file_meta.stats.num_tps.load(std::memory_order_relaxed), file_meta.prefetch_bpk, (table_options->filter_policy ? table_options->filter_policy->GetBitsPerKey() : 0), table_options->require_all_modules, table_options->allow_whole_filter_skipping);
-  }
-
-
   if (!done) {
     assert(s.ok());
     if (t == nullptr) {
+      // modified by modular filters
+      ModularFilterMeta curr_modular_filter_meta;
+      curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+      curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+      curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
       s = FindTable(options, file_options_, internal_comparator, fd, &handle,
                     prefix_extractor,
                     options.read_tier == kBlockCacheTier /* no_io */,
                     true /* record_read_stats */, file_read_hist, skip_filters,
                     level, true /* prefetch_index_and_filter_in_cache */,
-                    max_file_size_for_l0_meta_pin, mfilter_read_filters); //modified for modular filters 
+                    max_file_size_for_l0_meta_pin, curr_modular_filter_meta); //modified for modular filters 
       if (s.ok()) {
         t = GetTableReaderFromHandle(handle);
       }
@@ -518,10 +469,6 @@ Status TableCache::Get(const ReadOptions& options,
     }
     if (s.ok()) {
       get_context->SetReplayLog(row_cache_entry);  // nullptr if no cache.
-      // added from modular filters
-      if(table_options->modular_filters){
-        t->SetModulrFilterReadType(mfilter_read_filters);
-      }
       s = t->Get(options, k, get_context, prefix_extractor, skip_filters);
       get_context->SetReplayLog(nullptr);
     } else if (options.read_tier == kBlockCacheTier && s.IsIncomplete()) {
@@ -603,15 +550,17 @@ Status TableCache::MultiGet(const ReadOptions& options,
   // found in the row cache and thus the range may now be empty
   if (s.ok() && !table_range.empty()) {
     if (t == nullptr) {
-       BlockBasedTableOptions* table_options = static_cast<BlockBasedTableOptions*>(ioptions_.table_factory->GetOptions());
-      ModularFilterReadType mfilter_read_filters = kFirstFilterBlock;
-      if(table_options->modular_filters && !table_options->partition_filters){
-        mfilter_read_filters = TableCache::chooseReadType(file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed), file_meta.stats.num_tps.load(std::memory_order_relaxed), file_meta.prefetch_bpk, (table_options->filter_policy ? table_options->filter_policy->GetBitsPerKey() : 0), table_options->require_all_modules, table_options->allow_whole_filter_skipping);
-      }
+      // modified by modular filters
+      ModularFilterMeta curr_modular_filter_meta;
+      curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+      curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+      curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
+
+
       s = FindTable(
           options, file_options_, internal_comparator, fd, &handle,
           prefix_extractor, options.read_tier == kBlockCacheTier /* no_io */,
-          true /* record_read_stats */, file_read_hist, skip_filters, level);
+          true /* record_read_stats */, file_read_hist, skip_filters, level, true /* prefetch_index_and_filter_in_cache */, 0 /* max_file_size_for_l0_meta_pin */, curr_modular_filter_meta);
       TEST_SYNC_POINT_CALLBACK("TableCache::MultiGet:FindTable", &s);
       if (s.ok()) {
         t = GetTableReaderFromHandle(handle);

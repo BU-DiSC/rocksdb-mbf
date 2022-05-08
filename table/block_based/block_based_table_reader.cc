@@ -676,7 +676,7 @@ Status BlockBasedTable::Open(
   BlockCacheLookupContext lookup_context{TableReaderCaller::kPrefetch};
   Rep* rep = new BlockBasedTable::Rep(ioptions, env_options, table_options,
                                       internal_comparator, skip_filters,
-                                      file_size, level, immortal_table);
+                                      file_size, level, immortal_table, mfilter_read_filters); // modified by modular filters
   rep->file = std::move(file);
   rep->footer = footer;
   rep->hash_index_allow_collision = table_options.hash_index_allow_collision;
@@ -1518,7 +1518,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<TBlocklike>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    BlockContents* contents) const {
+    BlockContents* contents, bool* in_cache) const { // modified by modular filters
   assert(block_entry != nullptr);
   const bool no_io = (ro.read_tier == kBlockCacheTier);
   Cache* block_cache = rep_->table_options.block_cache.get();
@@ -1533,7 +1533,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
   char compressed_cache_key[kMaxCacheKeyPrefixSize + kMaxVarint64Length];
   Slice key /* key to the block cache */;
   Slice ckey /* key to the compressed block cache */;
-  bool is_cache_hit = false;
+  bool is_cache_hit = false; // modified by modular filters
   if (block_cache != nullptr || block_cache_compressed != nullptr) {
     // create key for block cache
     if (block_cache != nullptr) {
@@ -1555,6 +1555,9 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
         // TODO(haoyu): Differentiate cache hit on uncompressed block cache and
         // compressed block cache.
         is_cache_hit = true;
+      }
+      if(in_cache){ // modified by modular filters
+	  *in_cache = true;
       }
     }
 
@@ -1633,7 +1636,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
       case BlockType::kFilter:
         trace_block_type = TraceType::kBlockTraceFilterBlock;
         break;
-      case BlockType::kPrefetchFilter: /* added for modular filter */
+      case BlockType::kPrefetchFilter: /* modified by modular filter */
         trace_block_type = TraceType::kBlockTraceFilterBlock;
         break;
       case BlockType::kCompressionDictionary:
@@ -1973,7 +1976,7 @@ Status BlockBasedTable::RetrieveBlock(
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<TBlocklike>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache) const {
+    bool for_compaction, bool use_cache, bool* in_cache) const { // modified by modular filters
   assert(block_entry);
   assert(block_entry->IsEmpty());
 
@@ -1982,7 +1985,7 @@ Status BlockBasedTable::RetrieveBlock(
     s = MaybeReadBlockAndLoadToCache(prefetch_buffer, ro, handle,
                                      uncompression_dict, block_entry,
                                      block_type, get_context, lookup_context,
-                                     /*contents=*/nullptr);
+                                     /*contents=*/nullptr, in_cache); // modified by modular filters
 
     if (!s.ok()) {
       return s;
@@ -2057,28 +2060,28 @@ template Status BlockBasedTable::RetrieveBlock<BlockContents>(
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<BlockContents>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache) const;
+    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
 
 template Status BlockBasedTable::RetrieveBlock<ParsedFullFilterBlock>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<ParsedFullFilterBlock>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache) const;
+    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
 
 template Status BlockBasedTable::RetrieveBlock<Block>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<Block>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache) const;
+    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
 
 template Status BlockBasedTable::RetrieveBlock<UncompressionDict>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<UncompressionDict>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache) const;
+    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
 
 BlockBasedTable::PartitionedIndexIteratorState::PartitionedIndexIteratorState(
     const BlockBasedTable* table,
@@ -2984,13 +2987,6 @@ Status BlockBasedTable::VerifyChecksum(const ReadOptions& read_options,
   }
   s = VerifyChecksumInBlocks(read_options, iiter);
   return s;
-}
-
-void BlockBasedTable::SetModulrFilterReadType(
-    ModularFilterReadType _mfilter_read_filters) {
-  if (rep_ != nullptr) {
-    rep_->mfilter_read_filters = _mfilter_read_filters;
-  }
 }
 
 Status BlockBasedTable::VerifyChecksumInBlocks(

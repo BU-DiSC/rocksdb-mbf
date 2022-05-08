@@ -52,7 +52,7 @@ class XXH3pFilterBitsBuilder : public BuiltinFilterBitsBuilder {
 
   ~XXH3pFilterBitsBuilder() override {}
 
-  virtual void AddKey(const Slice& key) override {
+  virtual void AddKey(const Slice& key) override { 
     uint64_t hash = GetSliceHash64(key);
     // Especially with prefixes, it is common to have repetition,
     // though only adjacent repetition, which we want to immediately
@@ -198,7 +198,6 @@ class FastLocalBloomBitsBuilder : public XXH3pFilterBitsBuilder {
   void ResetBPK(double bpk) override { // modified for modular filters
 
     millibits_per_key_ = static_cast<int>(bpk * 1000.0 + 0.500001);
-    num_probes_ = FastLocalBloomImpl::ChooseNumProbes(millibits_per_key_);
   }
 
   // No Copy allowed
@@ -369,7 +368,7 @@ class FastLocalBloomBitsReader : public FilterBitsReader {
 
   ~FastLocalBloomBitsReader() override {}
 
-  bool MayMatch(const Slice& key) override {
+  bool MayMatch(const Slice& key) override { 
     uint64_t h = GetSliceHash64(key);
     uint32_t byte_offset;
     FastLocalBloomImpl::PrepareHash(Lower32of64(h), len_bytes_, data_,
@@ -441,6 +440,10 @@ class Standard128RibbonBitsBuilder : public XXH3pFilterBitsBuilder {
 
   ~Standard128RibbonBitsBuilder() override {}
 
+  void ResetBPK(double bpk) override { // modified for modular filters
+
+    bloom_fallback_.ResetBPK(bpk);
+  }
   virtual Slice Finish(std::unique_ptr<const char[]>* buf) override {
     if (hash_entries_.size() > kMaxRibbonEntries) {
       ROCKS_LOG_WARN(info_log_, "Too many keys for Ribbon filter: %llu",
@@ -1018,7 +1021,7 @@ class AlwaysTrueFilter : public FilterBitsReader {
 
 class AlwaysFalseFilter : public FilterBitsReader {
  public:
-  bool MayMatch(const Slice&) override { return false; }
+  bool MayMatch(const Slice&) override { return false; } 
   using FilterBitsReader::MayMatch;  // inherit overload
 };
 
@@ -1171,13 +1174,13 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
         return nullptr;
       case kFastLocalBloom:
         return new FastLocalBloomBitsBuilder(
-            millibits_per_key_, offm ? &aggregate_rounding_balance_ : nullptr);
+            millibits_per_key, offm ? &aggregate_rounding_balance_ : nullptr);
       case kLegacyBloom:
-        if (whole_bits_per_key_ >= 14 && context.info_log &&
+        if (whole_bits_per_key >= 14 && context.info_log && // modified by modular filters
             !warned_.load(std::memory_order_relaxed)) {
           warned_ = true;
           const char* adjective;
-          if (whole_bits_per_key_ >= 20) {
+          if (whole_bits_per_key >= 20) { // modified by modular filters
             adjective = "Dramatic";
           } else {
             adjective = "Significant";
@@ -1189,13 +1192,13 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
               "Using legacy Bloom filter with high (%d) bits/key. "
               "%s filter space and/or accuracy improvement is available "
               "with format_version>=5.",
-              whole_bits_per_key_, adjective);
+              whole_bits_per_key, adjective); // modified by modular filters
         }
-        return new LegacyBloomBitsBuilder(whole_bits_per_key_,
+        return new LegacyBloomBitsBuilder(whole_bits_per_key, // modified by modular filters
                                           context.info_log);
       case kStandard128Ribbon:
         return new Standard128RibbonBitsBuilder(
-            desired_one_in_fp_rate_, millibits_per_key_,
+            desired_one_in_fp_rate_, millibits_per_key, // modified by modular filters
             offm ? &aggregate_rounding_balance_ : nullptr, context.info_log);
     }
   }
@@ -1204,9 +1207,9 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
 }
 
 FilterBitsBuilder* BloomFilterPolicy::GetBuilderFromContext(
-    const FilterBuildingContext& context) {
+    const FilterBuildingContext& context, double bpk, bool prefetch) { // modified by modular filters
   if (context.table_options.filter_policy) {
-    return context.table_options.filter_policy->GetBuilderWithContext(context);
+    return context.table_options.filter_policy->GetBuilderWithContext(context, bpk, prefetch);
   } else {
     return nullptr;
   }

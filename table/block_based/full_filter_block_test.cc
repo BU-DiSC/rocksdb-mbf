@@ -58,7 +58,7 @@ class TestFilterBitsReader : public FilterBitsReader {
 
   // Silence compiler warning about overloaded virtual
   using FilterBitsReader::MayMatch;
-  bool MayMatch(const Slice& entry) override {
+  bool MayMatch(const Slice& entry) override { 
     uint32_t h = Hash(entry.data(), entry.size(), 1);
     for (size_t i = 0; i + 4 <= len_; i += 4) {
       if (h == DecodeFixed32(data_ + i)) {
