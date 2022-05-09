@@ -1559,12 +1559,14 @@ class DBImpl : public DB {
   // memtable pending flush.
   // resuming_from_bg_err indicates whether the caller is attempting to resume
   // from background error.
+ public:
   Status WaitForFlushMemTable(ColumnFamilyData* cfd,
                               const uint64_t* flush_memtable_id = nullptr,
                               bool resuming_from_bg_err = false) {
     return WaitForFlushMemTables({cfd}, {flush_memtable_id},
                                  resuming_from_bg_err);
   }
+ private:
   // Wait for memtables to be flushed for multiple column families.
   Status WaitForFlushMemTables(
       const autovector<ColumnFamilyData*>& cfds,
