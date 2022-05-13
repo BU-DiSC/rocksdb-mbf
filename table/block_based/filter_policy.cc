@@ -1043,6 +1043,7 @@ const std::vector<BloomFilterPolicy::Mode> BloomFilterPolicy::kAllUserModes = {
 BloomFilterPolicy::BloomFilterPolicy(double bits_per_key, Mode mode)
     : mode_(mode), warned_(false), aggregate_rounding_balance_(0) {
   // Sanitize bits_per_key
+  bits_per_key_ = bits_per_key; // modified for modular filters
   if (bits_per_key < 1.0) {
     bits_per_key = 1.0;
   } else if (!(bits_per_key < 100.0)) {  // including NaN
@@ -1144,13 +1145,13 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
 
   int millibits_per_key, whole_bits_per_key;
   if(prefetch){
-     double bits_per_key = bpk == 0.0 ? 1.0 : bpk;
-     millibits_per_key = static_cast<int>(bits_per_key * 1000.0 + 0.500001);
+     double tmp_bits_per_key = bpk == 0.0 ? 1.0 : bpk;
+     millibits_per_key = static_cast<int>(tmp_bits_per_key * 1000.0 + 0.500001);
      whole_bits_per_key = (millibits_per_key + 500) / 1000;
   }else if(bpk != 0){
-     double bits_per_key = bits_per_key_ - bpk;
-     if(bits_per_key == 0.0) bits_per_key = 1.0;
-     millibits_per_key = static_cast<int>(bits_per_key * 1000.0 + 0.500001);
+     double tmp_bits_per_key = bits_per_key_ - bpk;
+     if(tmp_bits_per_key == 0.0) tmp_bits_per_key = 1.0;
+     millibits_per_key = static_cast<int>(tmp_bits_per_key * 1000.0 + 0.500001);
      whole_bits_per_key = (millibits_per_key + 500) / 1000;
   }else{
      millibits_per_key = millibits_per_key_;
