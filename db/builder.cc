@@ -236,6 +236,7 @@ Status BuildTable(
     if (!s.ok() || empty) {
       builder->Abandon();
     } else {
+      builder->ResetPrefetchBPK(ModularFilterMeta(), ModularFilterMeta(), 0.0);
       s = builder->Finish();
     }
     if (io_status->ok()) {

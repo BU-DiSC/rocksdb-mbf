@@ -977,7 +977,7 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
   // Find filter handle and filter type
   if (rep_->filter_policy) {
     for (auto filter_type :
-         {Rep::FilterType::kFullFilter, Rep::FilterType::kPartitionedFilter,
+         {Rep::FilterType::kFullFilter, Rep::FilterType::kPartitionedFilter, Rep::FilterType::kModularFilter, // modified for modular filters
           Rep::FilterType::kBlockFilter}) {
       std::string prefix;
       switch (filter_type) {

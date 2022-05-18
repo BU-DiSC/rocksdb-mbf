@@ -519,6 +519,10 @@ struct BlockBasedTableBuilder::Rep {
             ioptions, moptions, context, use_delta_encoding_for_index_values,
             p_index_builder_, true));  // modified by modular filters
       }
+
+	if(table_options.filter_policy){ //modified by modular filiters
+	      total_bpk_ = table_options.filter_policy->GetBitsPerKey();
+	}
     }
 
     for (auto& collector_factories : *int_tbl_prop_collector_factories) {
@@ -921,7 +925,7 @@ float BlockBasedTableBuilder::ResetPrefetchBPK(
   if (rep_ != nullptr) {
     if (rep_->table_options.modular_filters) {
       if (!rep_->table_options.adaptive_prefetch_modular_filters ||
-          rep_->level_at_creation == 1) {
+          rep_->level_at_creation == 0) {
         bpk = rep_->table_options.prefetch_bpk;
       }else if(rep_->table_options.adaptive_prefetch_modular_filters){
 	if(total_modular_filter_meta.num_reads == 0){
@@ -1015,6 +1019,9 @@ void BlockBasedTableBuilder::Add(const Slice& key, const Slice& value) {
           size_t ts_sz =
               r->internal_comparator.user_comparator()->timestamp_size();
           r->filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
+	  if(r->prefetch_filter_builder != nullptr){ // modified by modular filters
+	      r->prefetch_filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
+          }
         }
       }
     }
@@ -1876,6 +1883,10 @@ void BlockBasedTableBuilder::EnterUnbuffered() {
           size_t ts_sz =
               r->internal_comparator.user_comparator()->timestamp_size();
           r->filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
+
+	  if(r->prefetch_filter_builder != nullptr){ // modified by modular filters
+	      r->prefetch_filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
+          }
         }
         r->index_builder->OnKeyAdded(key);
       }
