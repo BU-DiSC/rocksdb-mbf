@@ -204,10 +204,10 @@ std::unique_ptr<FilterBlockReader> ModularFilterBlockReader::Create(
   CachableEntry<ParsedFullFilterBlock> prefetch_filter_block;
   if (prefetch || !use_cache) {
      
-  ModularFilterReadType mfilter_read_filters = table->get_rep()->mfilter_read_filters;
+  ModularFilterReadType mfilter_read_type = table->get_rep()->mfilter_read_type;
   bool in_cache = false;
   bool* in_cache_p = &in_cache;
-    if(!table->get_rep()->prefetch_filter_handle.IsNull() && (mfilter_read_filters == ModularFilterReadType::kFirstFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks)){ 
+    if(!table->get_rep()->prefetch_filter_handle.IsNull() && (mfilter_read_type == ModularFilterReadType::kFirstFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks)){ 
         const Status prefetch_s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(), use_cache, nullptr /* get_context */, lookup_context, &prefetch_filter_block, true, in_cache_p);
         if(!prefetch_s.ok()){
           IGNORE_STATUS_IF_ERROR(prefetch_s);
@@ -217,7 +217,7 @@ std::unique_ptr<FilterBlockReader> ModularFilterBlockReader::Create(
 
 
 
-    if(mfilter_read_filters == ModularFilterReadType::kSecondFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks){
+    if(mfilter_read_type == ModularFilterReadType::kSecondFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks){
         if(!table->get_rep()->filter_handle.IsNull()){
             /// not cache the second filter block
             const Status s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(),
@@ -263,8 +263,8 @@ bool ModularFilterBlockReader::MayMatch(
 
   bool prefetch_match = true;
   bool next_match = true;
-  ModularFilterReadType mfilter_read_filters = table()->get_rep()->mfilter_read_filters;
-  bool require_next_match = mfilter_read_filters == ModularFilterReadType::kSecondFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks;
+  ModularFilterReadType mfilter_read_type = table()->get_rep()->mfilter_read_type;
+  bool require_next_match = mfilter_read_type == ModularFilterReadType::kSecondFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks;
   bool concurrent_load = table()->get_rep()->table_options.concurrent_load;
 
   bool in_cache = false;
@@ -276,7 +276,7 @@ bool ModularFilterBlockReader::MayMatch(
   }
 
 
-  if((mfilter_read_filters == ModularFilterReadType::kFirstFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){ 
+  if((mfilter_read_type == ModularFilterReadType::kFirstFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){ 
     const Status prefetch_s =
         GetOrReadFilterBlock(no_io, get_context, lookup_context, &prefetch_filter_block, true, in_cache_p);
     if (!prefetch_s.ok()) {
@@ -349,8 +349,8 @@ void ModularFilterBlockReader::MayMatch(
 
 
   
-  ModularFilterReadType mfilter_read_filters = table()->get_rep()->mfilter_read_filters;
-  bool require_next_match = mfilter_read_filters == ModularFilterReadType::kSecondFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks;
+  ModularFilterReadType mfilter_read_type = table()->get_rep()->mfilter_read_type;
+  bool require_next_match = mfilter_read_type == ModularFilterReadType::kSecondFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks;
   
   // We need to use an array instead of autovector for may_match since
   // &may_match[0] doesn't work for autovector<bool> (compiler error). So
@@ -374,7 +374,7 @@ void ModularFilterBlockReader::MayMatch(
 
   bool prefetch_match = false;
   
-  if((mfilter_read_filters == ModularFilterReadType::kFirstFilterBlock || mfilter_read_filters == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){
+  if((mfilter_read_type == ModularFilterReadType::kFirstFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){
     const Status prefetch_s = GetOrReadFilterBlock(no_io, range->begin()->get_context,
                                           lookup_context, &prefetch_filter_block, true);
     if (!prefetch_s.ok()) {

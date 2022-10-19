@@ -612,7 +612,7 @@ Status BlockBasedTable::Open(
     TailPrefetchStats* tail_prefetch_stats,
     BlockCacheTracer* const block_cache_tracer,
     size_t max_file_size_for_l0_meta_pin,
-    const ModularFilterReadType mfilter_read_filters) {
+    const ModularFilterReadType mfilter_read_types) {
   table_reader->reset();
 
   Status s;
@@ -676,7 +676,7 @@ Status BlockBasedTable::Open(
   BlockCacheLookupContext lookup_context{TableReaderCaller::kPrefetch};
   Rep* rep = new BlockBasedTable::Rep(ioptions, env_options, table_options,
                                       internal_comparator, skip_filters,
-                                      file_size, level, immortal_table, mfilter_read_filters); // modified by modular filters
+                                      file_size, level, immortal_table, mfilter_read_types); // modified by modular filters
   rep->file = std::move(file);
   rep->footer = footer;
   rep->hash_index_allow_collision = table_options.hash_index_allow_collision;

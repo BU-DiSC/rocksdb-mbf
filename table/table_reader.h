@@ -143,6 +143,9 @@ class TableReader {
     return Status::NotSupported("VerifyChecksum() not supported");
   }
 
+  virtual void SetModularFilterMeta(ModularFilterMeta & /*curr_modular_filter_meta*/) { 
+    return;
+  }
 };
 
 }  // namespace ROCKSDB_NAMESPACE

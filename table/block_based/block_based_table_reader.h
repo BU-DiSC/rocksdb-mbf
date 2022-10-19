@@ -102,7 +102,7 @@ class BlockBasedTable : public TableReader {
                      TailPrefetchStats* tail_prefetch_stats = nullptr,
                      BlockCacheTracer* const block_cache_tracer = nullptr,
                      size_t max_file_size_for_l0_meta_pin = 0,
-                     ModularFilterReadType mfilter_read_filters = ModularFilterReadType::kFirstFilterBlock); // added by modular filters
+                     ModularFilterReadType mfilter_read_type = ModularFilterReadType::kFirstFilterBlock); // added by modular filters
 
   bool PrefixMayMatch(const Slice& internal_key,
                       const ReadOptions& read_options,
@@ -222,12 +222,204 @@ class BlockBasedTable : public TableReader {
   // Retrieve all key value pairs from data blocks in the table.
   // The key retrieved are internal keys.
   Status GetKVPairsFromDataBlocks(std::vector<KVPairBlock>* kv_pair_blocks);
+  // Stores all the properties associated with a BlockBasedTable.
+  // These are immutable.
+  struct Rep {
+  Rep(const ImmutableCFOptions& _ioptions, const EnvOptions& _env_options,
+      const BlockBasedTableOptions& _table_opt,
+      const InternalKeyComparator& _internal_comparator, bool skip_filters,
+      uint64_t _file_size, int _level, const bool _immortal_table, ModularFilterReadType _mfilter_read_type = kFirstFilterBlock) // modified by modular filters
+      : ioptions(_ioptions),
+        env_options(_env_options),
+        table_options(_table_opt),
+        filter_policy(skip_filters ? nullptr : _table_opt.filter_policy.get()),
+        internal_comparator(_internal_comparator),
+        filter_type(FilterType::kNoFilter),
+        index_type(BlockBasedTableOptions::IndexType::kBinarySearch),
+        hash_index_allow_collision(false),
+        whole_key_filtering(_table_opt.whole_key_filtering),
+        prefix_filtering(true),
+        global_seqno(kDisableGlobalSequenceNumber),
+        file_size(_file_size),
+        level(_level),
+        immortal_table(_immortal_table),
+	mfilter_read_type(_mfilter_read_type){ // modified by modular filters
+		prefetch_bpk = table_options.prefetch_bpk;
+  
+	}
+  ~Rep() { status.PermitUncheckedError(); }
+  const ImmutableCFOptions& ioptions;
+  const EnvOptions& env_options;
+  const BlockBasedTableOptions table_options;
+  const FilterPolicy* const filter_policy;
+  const InternalKeyComparator& internal_comparator;
+  Status status;
+  std::unique_ptr<RandomAccessFileReader> file;
+  char cache_key_prefix[kMaxCacheKeyPrefixSize];
+  size_t cache_key_prefix_size = 0;
+  char persistent_cache_key_prefix[kMaxCacheKeyPrefixSize];
+  size_t persistent_cache_key_prefix_size = 0;
+  char compressed_cache_key_prefix[kMaxCacheKeyPrefixSize];
+  size_t compressed_cache_key_prefix_size = 0;
+  PersistentCacheOptions persistent_cache_options;
+  float prefetch_bpk = 0; // modified by modular filters
+  bool require_next_match = true; //modified by modular filters
 
-  struct Rep;
+  // Footer contains the fixed table information
+  Footer footer;
+
+  std::unique_ptr<IndexReader> index_reader;
+  std::unique_ptr<FilterBlockReader> filter;
+  std::unique_ptr<UncompressionDictReader> uncompression_dict_reader;
+
+  enum class FilterType {
+    kNoFilter,
+    kFullFilter,
+    kModularFilter, // modified by modular filters
+    kBlockFilter,
+    kPartitionedFilter,
+  };
+  FilterType filter_type;
+  BlockHandle filter_handle;
+  BlockHandle prefetch_filter_handle; // modified by modular filters
+  BlockHandle compression_dict_handle;
+
+  std::shared_ptr<const TableProperties> table_properties;
+  BlockBasedTableOptions::IndexType index_type;
+  bool hash_index_allow_collision;
+  bool whole_key_filtering;
+  bool prefix_filtering;
+  // TODO(kailiu) It is very ugly to use internal key in table, since table
+  // module should not be relying on db module. However to make things easier
+  // and compatible with existing code, we introduce a wrapper that allows
+  // block to extract prefix without knowing if a key is internal or not.
+  // null if no prefix_extractor is passed in when opening the table reader.
+  std::unique_ptr<SliceTransform> internal_prefix_transform;
+  std::shared_ptr<const SliceTransform> table_prefix_extractor;
+
+  std::shared_ptr<const FragmentedRangeTombstoneList> fragmented_range_dels;
+
+  // If global_seqno is used, all Keys in this file will have the same
+  // seqno with value `global_seqno`.
+  //
+  // A value of kDisableGlobalSequenceNumber means that this feature is disabled
+  // and every key have it's own seqno.
+  SequenceNumber global_seqno;
+
+  // Size of the table file on disk
+  uint64_t file_size;
+
+  // the level when the table is opened, could potentially change when trivial
+  // move is involved
+  int level;
+
+  // If false, blocks in this file are definitely all uncompressed. Knowing this
+  // before reading individual blocks enables certain optimizations.
+  bool blocks_maybe_compressed = true;
+
+  // If true, data blocks in this file are definitely ZSTD compressed. If false
+  // they might not be. When false we skip creating a ZSTD digested
+  // uncompression dictionary. Even if we get a false negative, things should
+  // still work, just not as quickly.
+  bool blocks_definitely_zstd_compressed = false;
+
+  // These describe how index is encoded.
+  bool index_has_first_key = false;
+  bool index_key_includes_seq = true;
+  bool index_value_is_full = true;
+
+  const bool immortal_table;
+  ModularFilterReadType mfilter_read_type = ModularFilterReadType::kFirstFilterBlock; // modified by modular filters
+
+  SequenceNumber get_global_seqno(BlockType block_type) const {
+    return (block_type == BlockType::kFilter ||
+            block_type == BlockType::kCompressionDictionary)
+               ? kDisableGlobalSequenceNumber
+               : global_seqno;
+  }
+
+  uint64_t cf_id_for_tracing() const {
+    return table_properties
+               ? table_properties->column_family_id
+               : ROCKSDB_NAMESPACE::TablePropertiesCollectorFactory::Context::
+                     kUnknownColumnFamily;
+  }
+
+  Slice cf_name_for_tracing() const {
+    return table_properties ? table_properties->column_family_name
+                            : BlockCacheTraceHelper::kUnknownColumnFamilyName;
+  }
+
+  uint32_t level_for_tracing() const { return level >= 0 ? level : UINT32_MAX; }
+
+  uint64_t sst_number_for_tracing() const {
+    return file ? TableFileNameToNumber(file->file_name()) : UINT64_MAX;
+  }
+  void CreateFilePrefetchBuffer(
+      size_t readahead_size, size_t max_readahead_size,
+      std::unique_ptr<FilePrefetchBuffer>* fpb) const {
+    fpb->reset(new FilePrefetchBuffer(file.get(), readahead_size,
+                                      max_readahead_size,
+                                      !ioptions.allow_mmap_reads /* enable */));
+  }
+
+  void CreateFilePrefetchBufferIfNotExists(
+      size_t readahead_size, size_t max_readahead_size,
+      std::unique_ptr<FilePrefetchBuffer>* fpb) const {
+    if (!(*fpb)) {
+      CreateFilePrefetchBuffer(readahead_size, max_readahead_size, fpb);
+    }
+  }
+};
+
+
+
 
   Rep* get_rep() { return rep_; }
   const Rep* get_rep() const { return rep_; }
+ 
+  static ModularFilterReadType GetModularFilterReadType(const BlockBasedTableOptions& table_options_, const ModularFilterMeta & curr_modular_filter_meta) {
+  ModularFilterReadType mfilter_read_type = kFirstFilterBlock;
+  if(table_options_.modular_filters && !table_options_.partition_filters){
+      float alpha = curr_modular_filter_meta.num_tps/curr_modular_filter_meta.num_reads;
+      float total_bpk = table_options_.filter_policy ? table_options_.filter_policy->GetBitsPerKey() : 0; 
+      if(curr_modular_filter_meta.bpk == 0){
+	  if(!table_options_.require_all_modules || total_bpk == 0 ){
+              mfilter_read_type = kNoFilterBlock;
+	  }else{
+	      mfilter_read_type = kSecondFilterBlock;
+	  }
+      }else{
+          // if(curr_modular_filter_meta.num_reads==0){
+          //   return kNoFilterBlock;
+          // }
+          if (alpha > 0.8 && table_options_.allow_whole_filter_skipping) {
+              mfilter_read_type = kNoFilterBlock;
+          } else if (total_bpk <= curr_modular_filter_meta.bpk) {
+              mfilter_read_type = kFirstFilterBlock;
+          } else if (!table_options_.require_all_modules) {
+              int second_bpk = int(total_bpk - curr_modular_filter_meta.bpk);
+              float fp[11] = {1,      1,      0.393,  0.237,  0.147,  0.092,
+                      0.0561, 0.0347, 0.0216, 0.0133, 0.00819};
+              float expIO = alpha + (1 - alpha) * fp[second_bpk];
+              if (expIO > 0.5) {
+                  mfilter_read_type = kFirstFilterBlock;
+              } else {
+                  mfilter_read_type = kBothFilterBlocks;
+              }
+          } else {
+              mfilter_read_type = kBothFilterBlocks;
+          }
+      }
+  }
+  return mfilter_read_type;
+}
 
+ 
+
+  void SetModularFilterMeta(ModularFilterMeta & curr_modular_filter_meta) {
+    rep_->mfilter_read_type = GetModularFilterReadType(rep_->table_options, curr_modular_filter_meta);
+  }
   // input_iter: if it is not null, update this one and return it as Iterator
   template <typename TBlockIter>
   TBlockIter* NewDataBlockIterator(
@@ -274,7 +466,7 @@ class BlockBasedTable : public TableReader {
                                    bool redundant) const;
   Cache::Handle* GetEntryFromCache(Cache* block_cache, const Slice& key,
                                    BlockType block_type,
-                                   GetContext* get_context) const;
+                                   GetContext* get_context) const; 
 
   // Either Block::NewDataIterator() or Block::NewIndexIterator().
   template <typename TBlockIter>
@@ -501,156 +693,6 @@ class BlockBasedTable::PartitionedIndexIteratorState
   // Don't own table_
   const BlockBasedTable* table_;
   std::unordered_map<uint64_t, CachableEntry<Block>>* block_map_;
-};
-
-// Stores all the properties associated with a BlockBasedTable.
-// These are immutable.
-struct BlockBasedTable::Rep {
-  Rep(const ImmutableCFOptions& _ioptions, const EnvOptions& _env_options,
-      const BlockBasedTableOptions& _table_opt,
-      const InternalKeyComparator& _internal_comparator, bool skip_filters,
-      uint64_t _file_size, int _level, const bool _immortal_table, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // modified by modular filters
-      : ioptions(_ioptions),
-        env_options(_env_options),
-        table_options(_table_opt),
-        filter_policy(skip_filters ? nullptr : _table_opt.filter_policy.get()),
-        internal_comparator(_internal_comparator),
-        filter_type(FilterType::kNoFilter),
-        index_type(BlockBasedTableOptions::IndexType::kBinarySearch),
-        hash_index_allow_collision(false),
-        whole_key_filtering(_table_opt.whole_key_filtering),
-        prefix_filtering(true),
-        global_seqno(kDisableGlobalSequenceNumber),
-        file_size(_file_size),
-        level(_level),
-        immortal_table(_immortal_table),
-	mfilter_read_filters(_mfilter_read_filters){ // modified by modular filters
-		prefetch_bpk = table_options.prefetch_bpk;
-  
-	}
-  ~Rep() { status.PermitUncheckedError(); }
-  const ImmutableCFOptions& ioptions;
-  const EnvOptions& env_options;
-  const BlockBasedTableOptions table_options;
-  const FilterPolicy* const filter_policy;
-  const InternalKeyComparator& internal_comparator;
-  Status status;
-  std::unique_ptr<RandomAccessFileReader> file;
-  char cache_key_prefix[kMaxCacheKeyPrefixSize];
-  size_t cache_key_prefix_size = 0;
-  char persistent_cache_key_prefix[kMaxCacheKeyPrefixSize];
-  size_t persistent_cache_key_prefix_size = 0;
-  char compressed_cache_key_prefix[kMaxCacheKeyPrefixSize];
-  size_t compressed_cache_key_prefix_size = 0;
-  PersistentCacheOptions persistent_cache_options;
-  float prefetch_bpk = 0; // modified by modular filters
-  bool require_next_match = true; //modified by modular filters
-
-  // Footer contains the fixed table information
-  Footer footer;
-
-  std::unique_ptr<IndexReader> index_reader;
-  std::unique_ptr<FilterBlockReader> filter;
-  std::unique_ptr<UncompressionDictReader> uncompression_dict_reader;
-
-  enum class FilterType {
-    kNoFilter,
-    kFullFilter,
-    kModularFilter, // modified by modular filters
-    kBlockFilter,
-    kPartitionedFilter,
-  };
-  FilterType filter_type;
-  BlockHandle filter_handle;
-  BlockHandle prefetch_filter_handle; // modified by modular filters
-  BlockHandle compression_dict_handle;
-
-  std::shared_ptr<const TableProperties> table_properties;
-  BlockBasedTableOptions::IndexType index_type;
-  bool hash_index_allow_collision;
-  bool whole_key_filtering;
-  bool prefix_filtering;
-  // TODO(kailiu) It is very ugly to use internal key in table, since table
-  // module should not be relying on db module. However to make things easier
-  // and compatible with existing code, we introduce a wrapper that allows
-  // block to extract prefix without knowing if a key is internal or not.
-  // null if no prefix_extractor is passed in when opening the table reader.
-  std::unique_ptr<SliceTransform> internal_prefix_transform;
-  std::shared_ptr<const SliceTransform> table_prefix_extractor;
-
-  std::shared_ptr<const FragmentedRangeTombstoneList> fragmented_range_dels;
-
-  // If global_seqno is used, all Keys in this file will have the same
-  // seqno with value `global_seqno`.
-  //
-  // A value of kDisableGlobalSequenceNumber means that this feature is disabled
-  // and every key have it's own seqno.
-  SequenceNumber global_seqno;
-
-  // Size of the table file on disk
-  uint64_t file_size;
-
-  // the level when the table is opened, could potentially change when trivial
-  // move is involved
-  int level;
-
-  // If false, blocks in this file are definitely all uncompressed. Knowing this
-  // before reading individual blocks enables certain optimizations.
-  bool blocks_maybe_compressed = true;
-
-  // If true, data blocks in this file are definitely ZSTD compressed. If false
-  // they might not be. When false we skip creating a ZSTD digested
-  // uncompression dictionary. Even if we get a false negative, things should
-  // still work, just not as quickly.
-  bool blocks_definitely_zstd_compressed = false;
-
-  // These describe how index is encoded.
-  bool index_has_first_key = false;
-  bool index_key_includes_seq = true;
-  bool index_value_is_full = true;
-
-  const bool immortal_table;
-  ModularFilterReadType mfilter_read_filters = ModularFilterReadType::kFirstFilterBlock; // modified by modular filters
-
-  SequenceNumber get_global_seqno(BlockType block_type) const {
-    return (block_type == BlockType::kFilter ||
-            block_type == BlockType::kCompressionDictionary)
-               ? kDisableGlobalSequenceNumber
-               : global_seqno;
-  }
-
-  uint64_t cf_id_for_tracing() const {
-    return table_properties
-               ? table_properties->column_family_id
-               : ROCKSDB_NAMESPACE::TablePropertiesCollectorFactory::Context::
-                     kUnknownColumnFamily;
-  }
-
-  Slice cf_name_for_tracing() const {
-    return table_properties ? table_properties->column_family_name
-                            : BlockCacheTraceHelper::kUnknownColumnFamilyName;
-  }
-
-  uint32_t level_for_tracing() const { return level >= 0 ? level : UINT32_MAX; }
-
-  uint64_t sst_number_for_tracing() const {
-    return file ? TableFileNameToNumber(file->file_name()) : UINT64_MAX;
-  }
-  void CreateFilePrefetchBuffer(
-      size_t readahead_size, size_t max_readahead_size,
-      std::unique_ptr<FilePrefetchBuffer>* fpb) const {
-    fpb->reset(new FilePrefetchBuffer(file.get(), readahead_size,
-                                      max_readahead_size,
-                                      !ioptions.allow_mmap_reads /* enable */));
-  }
-
-  void CreateFilePrefetchBufferIfNotExists(
-      size_t readahead_size, size_t max_readahead_size,
-      std::unique_ptr<FilePrefetchBuffer>* fpb) const {
-    if (!(*fpb)) {
-      CreateFilePrefetchBuffer(readahead_size, max_readahead_size, fpb);
-    }
-  }
 };
 
 // This is an adapter class for `WritableFile` to be used for `std::ostream`.

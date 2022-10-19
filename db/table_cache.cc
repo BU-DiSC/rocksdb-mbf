@@ -439,12 +439,12 @@ Status TableCache::Get(const ReadOptions& options,
 
   if (!done) {
     assert(s.ok());
-    if (t == nullptr) {
-      // modified by modular filters
-      ModularFilterMeta curr_modular_filter_meta;
-      curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
-      curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
-      curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
+    // modified by modular filters
+    ModularFilterMeta curr_modular_filter_meta;
+    curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
+    if (t == nullptr) { 
       s = FindTable(options, file_options_, internal_comparator, fd, &handle,
                     prefix_extractor,
                     options.read_tier == kBlockCacheTier /* no_io */,
@@ -455,6 +455,7 @@ Status TableCache::Get(const ReadOptions& options,
         t = GetTableReaderFromHandle(handle);
       }
     }
+    t->SetModularFilterMeta(curr_modular_filter_meta);
     SequenceNumber* max_covering_tombstone_seq =
         get_context->max_covering_tombstone_seq();
     if (s.ok() && max_covering_tombstone_seq != nullptr &&

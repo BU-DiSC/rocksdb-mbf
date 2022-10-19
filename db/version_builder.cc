@@ -969,9 +969,7 @@ class VersionBuilder::Rep {
         ModularFilterMeta curr_modular_filter_meta;
         curr_modular_filter_meta.num_reads = file_meta->stats.num_reads_sampled.load(std::memory_order_relaxed);
         curr_modular_filter_meta.num_tps = file_meta->stats.num_tps_sampled.load(std::memory_order_relaxed);
-	if(!is_initial_load){
-            curr_modular_filter_meta.bpk = file_meta->prefetch_bpk;
-	}
+        curr_modular_filter_meta.bpk = file_meta->prefetch_bpk; // TODO, adaptive prefix bpk should change here	
 
         
         statuses[file_idx] = table_cache_->FindTable(

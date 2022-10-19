@@ -993,9 +993,10 @@ class LevelIterator final : public InternalIterator {
   InternalIterator* NewFileIterator() {
     assert(file_index_ < flevel_->num_files);
     auto file_meta = flevel_->files[file_index_];
-    if (should_sample_) {
-      sample_file_read_inc(file_meta.file_metadata);
-    }
+    //if (should_sample_) {
+    //  sample_file_read_inc(file_meta.file_metadata);
+    //} 
+    // modified by modular filter
 
     const InternalKey* smallest_compaction_key = nullptr;
     const InternalKey* largest_compaction_key = nullptr;
@@ -1609,7 +1610,8 @@ void Version::AddIteratorsForLevel(const ReadOptions& read_options,
     return;
   }
 
-  bool should_sample = should_sample_file_read();
+  //bool should_sample = should_sample_file_read();
+  //modified by modular filter
 
   auto* arena = merge_iter_builder->GetArena();
   if (level == 0) {
@@ -1626,6 +1628,7 @@ void Version::AddIteratorsForLevel(const ReadOptions& read_options,
           /*smallest_compaction_key=*/nullptr,
           /*largest_compaction_key=*/nullptr, allow_unprepared_value));
     }
+    /*
     if (should_sample) {
       // Count ones for every L0 files. This is done per iterator creation
       // rather than Seek(), while files in other levels are recored per seek.
@@ -1634,7 +1637,8 @@ void Version::AddIteratorsForLevel(const ReadOptions& read_options,
       for (FileMetaData* meta : storage_info_.LevelFiles(0)) {
         sample_file_read_inc(meta);
       }
-    }
+    }*/
+    // modified by modular filter
   } else if (storage_info_.LevelFilesBrief(level).num_files > 0) {
     // For levels > 0, we can use a concatenating iterator that sequentially
     // walks through the non-overlapping files in the level, opening them
@@ -1903,9 +1907,11 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
       // stop here.
       break;
     }
-    if (get_context.sample()) {
-      sample_file_read_inc(f->file_metadata);
-    }
+    //if (get_context.sample()) {
+    //  sample_file_read_inc(f->file_metadata);
+    //}
+    //modified by modular filters
+    sample_file_read_inc(f->file_metadata);
 
     bool timer_enabled =
         GetPerfLevel() >= PerfLevel::kEnableTimeExceptForMutex &&
