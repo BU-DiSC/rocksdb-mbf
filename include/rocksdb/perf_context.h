@@ -188,6 +188,9 @@ struct PerfContext {
   // total number of SST table bloom misses
   uint64_t bloom_sst_miss_count;
 
+  // total number of Get() function called
+  uint64_t num_point_lookups;
+
   // Time spent waiting on key locks in transaction lock manager.
   uint64_t key_lock_wait_time;
   // number of times acquiring a lock was blocked by another transaction.

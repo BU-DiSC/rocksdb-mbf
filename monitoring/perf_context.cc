@@ -94,6 +94,7 @@ PerfContext::PerfContext(const PerfContext& other) {
   bloom_memtable_miss_count = other.bloom_memtable_miss_count;
   bloom_sst_hit_count = other.bloom_sst_hit_count;
   bloom_sst_miss_count = other.bloom_sst_miss_count;
+  num_point_lookups = other.num_point_lookups;
   key_lock_wait_time = other.key_lock_wait_time;
   key_lock_wait_count = other.key_lock_wait_count;
 
@@ -191,6 +192,7 @@ PerfContext::PerfContext(PerfContext&& other) noexcept {
   bloom_memtable_miss_count = other.bloom_memtable_miss_count;
   bloom_sst_hit_count = other.bloom_sst_hit_count;
   bloom_sst_miss_count = other.bloom_sst_miss_count;
+  num_point_lookups = other.num_point_lookups;
   key_lock_wait_time = other.key_lock_wait_time;
   key_lock_wait_count = other.key_lock_wait_count;
 
@@ -290,6 +292,7 @@ PerfContext& PerfContext::operator=(const PerfContext& other) {
   bloom_memtable_miss_count = other.bloom_memtable_miss_count;
   bloom_sst_hit_count = other.bloom_sst_hit_count;
   bloom_sst_miss_count = other.bloom_sst_miss_count;
+  num_point_lookups = other.num_point_lookups;
   key_lock_wait_time = other.key_lock_wait_time;
   key_lock_wait_count = other.key_lock_wait_count;
 
@@ -386,6 +389,7 @@ void PerfContext::Reset() {
   bloom_memtable_miss_count = 0;
   bloom_sst_hit_count = 0;
   bloom_sst_miss_count = 0;
+  num_point_lookups = 0;
   key_lock_wait_time = 0;
   key_lock_wait_count = 0;
 
@@ -505,6 +509,7 @@ std::string PerfContext::ToString(bool exclude_zero_counters) const {
   PERF_CONTEXT_OUTPUT(bloom_memtable_miss_count);
   PERF_CONTEXT_OUTPUT(bloom_sst_hit_count);
   PERF_CONTEXT_OUTPUT(bloom_sst_miss_count);
+  PERF_CONTEXT_OUTPUT(num_point_lookups);
   PERF_CONTEXT_OUTPUT(key_lock_wait_time);
   PERF_CONTEXT_OUTPUT(key_lock_wait_count);
   PERF_CONTEXT_OUTPUT(env_new_sequential_file_nanos);

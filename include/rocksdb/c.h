@@ -1443,6 +1443,7 @@ enum {
   rocksdb_bloom_memtable_miss_count,
   rocksdb_bloom_sst_hit_count,
   rocksdb_bloom_sst_miss_count,
+  rocksdb_num_point_lookups,
   rocksdb_key_lock_wait_time,
   rocksdb_key_lock_wait_count,
   rocksdb_env_new_sequential_file_nanos,

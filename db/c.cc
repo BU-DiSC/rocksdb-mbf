@@ -3552,6 +3552,8 @@ uint64_t rocksdb_perfcontext_metric(rocksdb_perfcontext_t* context,
       return rep->bloom_sst_hit_count;
     case rocksdb_bloom_sst_miss_count:
       return rep->bloom_sst_miss_count;
+    case rocksdb_num_point_lookups:
+      return rep->num_point_lookups;
     case rocksdb_key_lock_wait_time:
       return rep->key_lock_wait_time;
     case rocksdb_key_lock_wait_count:

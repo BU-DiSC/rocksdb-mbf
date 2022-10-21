@@ -455,7 +455,7 @@ Status TableCache::Get(const ReadOptions& options,
         t = GetTableReaderFromHandle(handle);
       }
     }
-    t->SetModularFilterMeta(curr_modular_filter_meta);
+    t->SetModularFilterMeta(curr_modular_filter_meta, get_perf_context()->num_point_lookups);
     SequenceNumber* max_covering_tombstone_seq =
         get_context->max_covering_tombstone_seq();
     if (s.ok() && max_covering_tombstone_seq != nullptr &&

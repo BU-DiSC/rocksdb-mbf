@@ -1861,7 +1861,7 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
                   bool* is_blob, bool do_merge) {
   Slice ikey = k.internal_key();
   Slice user_key = k.user_key();
-
+  PERF_COUNTER_ADD(num_point_lookups, 1);
   assert(status->ok() || status->IsMergeInProgress());
 
   if (key_exists != nullptr) {

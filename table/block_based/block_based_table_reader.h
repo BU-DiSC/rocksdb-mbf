@@ -378,10 +378,11 @@ class BlockBasedTable : public TableReader {
   Rep* get_rep() { return rep_; }
   const Rep* get_rep() const { return rep_; }
  
-  static ModularFilterReadType GetModularFilterReadType(const BlockBasedTableOptions& table_options_, const ModularFilterMeta & curr_modular_filter_meta) {
+  static ModularFilterReadType GetModularFilterReadType(const BlockBasedTableOptions& table_options_, const ModularFilterMeta & curr_modular_filter_meta, uint64_t num_point_lookups) {
   ModularFilterReadType mfilter_read_type = kFirstFilterBlock;
   if(table_options_.modular_filters && !table_options_.partition_filters){
       float alpha = curr_modular_filter_meta.num_tps/curr_modular_filter_meta.num_reads;
+      float beta = curr_modular_filter_meta.num_reads/num_point_lookups;
       float total_bpk = table_options_.filter_policy ? table_options_.filter_policy->GetBitsPerKey() : 0; 
       if(curr_modular_filter_meta.bpk == 0){
 	  if(!table_options_.require_all_modules || total_bpk == 0 ){
@@ -393,6 +394,29 @@ class BlockBasedTable : public TableReader {
           // if(curr_modular_filter_meta.num_reads==0){
           //   return kNoFilterBlock;
           // }
+          float fp[11] = {1,      1,      0.393,  0.237,  0.147,  0.092,
+                      0.0561, 0.0347, 0.0216, 0.0133, 0.00819};
+	  float util_threshold = 0.2;
+          int first_bpk = (int)curr_modular_filter_meta.bpk;
+	  if (total_bpk <= curr_modular_filter_meta.bpk) {
+            first_bpk = (int)total_bpk;  
+	  }
+	 
+	  float util = beta*(1.0 - alpha)*(1 - fp[first_bpk]);
+	  if (table_options_.allow_whole_filter_skipping && util < util_threshold) {
+	    mfilter_read_type = kNoFilterBlock;
+	  } else {
+	    util = beta*(1.0 - alpha)*(fp[first_bpk] - fp[(int)total_bpk]);
+	    if (util < util_threshold && !table_options_.require_all_modules) {
+	      mfilter_read_type = kFirstFilterBlock;
+	    } else {
+	      mfilter_read_type = kBothFilterBlocks;
+	    }
+	  }
+
+
+	  // Old implementations:
+	  /*
           if (alpha > 0.8 && table_options_.allow_whole_filter_skipping) {
               mfilter_read_type = kNoFilterBlock;
           } else if (total_bpk <= curr_modular_filter_meta.bpk) {
@@ -409,7 +433,7 @@ class BlockBasedTable : public TableReader {
               }
           } else {
               mfilter_read_type = kBothFilterBlocks;
-          }
+          }*/
       }
   }
   return mfilter_read_type;
@@ -417,8 +441,8 @@ class BlockBasedTable : public TableReader {
 
  
 
-  void SetModularFilterMeta(ModularFilterMeta & curr_modular_filter_meta) {
-    rep_->mfilter_read_type = GetModularFilterReadType(rep_->table_options, curr_modular_filter_meta);
+  void SetModularFilterMeta(ModularFilterMeta & curr_modular_filter_meta, uint64_t num_point_lookups) {
+    rep_->mfilter_read_type = GetModularFilterReadType(rep_->table_options, curr_modular_filter_meta, num_point_lookups);
   }
   // input_iter: if it is not null, update this one and return it as Iterator
   template <typename TBlockIter>

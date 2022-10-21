@@ -480,7 +480,7 @@ Status BlockBasedTableFactory::NewTableReader(
     std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
     std::unique_ptr<TableReader>* table_reader,
     bool prefetch_index_and_filter_in_cache, ModularFilterMeta curr_modular_filter_meta ) const {
-    ModularFilterReadType mfilter_read_filters = BlockBasedTable::GetModularFilterReadType(table_options_, curr_modular_filter_meta); 
+    ModularFilterReadType mfilter_read_filters = BlockBasedTable::GetModularFilterReadType(table_options_, curr_modular_filter_meta, get_perf_context()->num_point_lookups); 
   return BlockBasedTable::Open(
       ro, table_reader_options.ioptions, table_reader_options.env_options,
       table_options_, table_reader_options.internal_comparator, std::move(file),
