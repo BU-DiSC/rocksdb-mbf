@@ -138,7 +138,8 @@ bool VersionEdit::EncodeTo(std::string* dst) const {
     PutVarint32Varint64(dst, new_files_[i].first /* level */, f.fd.GetNumber());
     PutVarint64(dst, f.fd.GetFileSize());
     PutVarint32(dst, static_cast<uint32_t>(f.prefetch_bpk));
-    PutLengthPrefixedSlice(dst, f.smallest.Encode()); // modified by modular filter
+    PutLengthPrefixedSlice(dst,
+                           f.smallest.Encode());  // modified by modular filter
     PutLengthPrefixedSlice(dst, f.largest.Encode());
     PutVarint64Varint64(dst, f.fd.smallest_seqno, f.fd.largest_seqno);
     // Customized fields' format:
@@ -301,11 +302,11 @@ const char* VersionEdit::DecodeNewFile4From(Slice* input) {
   SequenceNumber largest_seqno = kMaxSequenceNumber;
   if (GetLevel(input, &level, &msg) && GetVarint64(input, &number) &&
       GetVarint64(input, &file_size) && GetVarint32(input, &prefetch_bpk) &&
-GetInternalKey(input, &f.smallest) &&
-      GetInternalKey(input, &f.largest) &&
+      GetInternalKey(input, &f.smallest) && GetInternalKey(input, &f.largest) &&
       GetVarint64(input, &smallest_seqno) &&
       GetVarint64(input, &largest_seqno)) {
-    f.prefetch_bpk = static_cast<float>(prefetch_bpk); // modified by modular filter
+    f.prefetch_bpk =
+        static_cast<float>(prefetch_bpk);  // modified by modular filter
     // See comments in VersionEdit::EncodeTo() for format of customized fields
     while (true) {
       uint32_t custom_tag = 0;

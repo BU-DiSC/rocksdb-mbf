@@ -8,21 +8,26 @@
 #include "util/random.h"
 
 namespace ROCKSDB_NAMESPACE {
-static const uint32_t kFileReadSampleRate = 1024;
+static const uint32_t kFileReadSampleRate = 1;
 extern bool should_sample_file_read();
 extern void sample_file_read_inc(FileMetaData*);
 
 inline bool should_sample_file_read() {
-  return (Random::GetTLSInstance()->Next() % kFileReadSampleRate == 307);
+  // return (Random::GetTLSInstance()->Next() % kFileReadSampleRate == 307);
+  return (Random::GetTLSInstance()->Next() % kFileReadSampleRate ==
+          0);  // modified by modular filters
 }
 
-inline void sample_file_read_inc(FileMetaData* meta) { // modified by modular filters
-  meta->stats.num_reads_sampled.fetch_add(kFileReadSampleRate, // was KFileReadSampleRate
-                                          std::memory_order_relaxed);
+inline void sample_file_read_inc(
+    FileMetaData* meta) {  // modified by modular filters
+  meta->stats.num_reads_sampled.fetch_add(
+      kFileReadSampleRate,  // was KFileReadSampleRate
+      std::memory_order_relaxed);
 }
 
-inline void file_num_tp_inc(FileMetaData* meta) { // modified by modular filters
+inline void file_num_tp_inc(
+    FileMetaData* meta) {  // modified by modular filters
   meta->stats.num_tps_sampled.fetch_add(kFileReadSampleRate,
-                                          std::memory_order_relaxed);
+                                        std::memory_order_relaxed);
 }
 }  // namespace ROCKSDB_NAMESPACE

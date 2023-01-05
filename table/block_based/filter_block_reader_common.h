@@ -25,8 +25,10 @@ class FilterBlockReaderCommon : public FilterBlockReader {
   // added for modular filter
   FilterBlockReaderCommon(const BlockBasedTable* t,
                           CachableEntry<TBlocklike>&& filter_block,
-                          CachableEntry<TBlocklike>&& prefetch_filter_block) 
-      : table_(t), filter_block_(std::move(filter_block)), prefetch_filter_block_(std::move(prefetch_filter_block)) {
+                          CachableEntry<TBlocklike>&& prefetch_filter_block)
+      : table_(t),
+        filter_block_(std::move(filter_block)),
+        prefetch_filter_block_(std::move(prefetch_filter_block)) {
     assert(table_);
   }
   FilterBlockReaderCommon(const BlockBasedTable* t,
@@ -36,13 +38,13 @@ class FilterBlockReaderCommon : public FilterBlockReader {
   }
 
  protected:
-  static Status ReadFilterBlock(const BlockBasedTable* table,
-                                FilePrefetchBuffer* prefetch_buffer,
-                                const ReadOptions& read_options, bool use_cache,
-                                GetContext* get_context,
-                                BlockCacheLookupContext* lookup_context,
-                                CachableEntry<TBlocklike>* filter_block,
-                                 bool prefetch_filter=false, bool* in_cache=nullptr); /* prefetch_filter arg modified by modular filter */
+  static Status ReadFilterBlock(
+      const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
+      const ReadOptions& read_options, bool use_cache, GetContext* get_context,
+      BlockCacheLookupContext* lookup_context,
+      CachableEntry<TBlocklike>* filter_block, bool prefetch_filter = false,
+      bool* in_cache =
+          nullptr); /* prefetch_filter arg modified by modular filter */
 
   const BlockBasedTable* table() const { return table_; }
   const SliceTransform* table_prefix_extractor() const;
@@ -52,14 +54,17 @@ class FilterBlockReaderCommon : public FilterBlockReader {
   Status GetOrReadFilterBlock(bool no_io, GetContext* get_context,
                               BlockCacheLookupContext* lookup_context,
                               CachableEntry<TBlocklike>* filter_block,
-                              bool prefetch_filter=false, bool* in_cache=nullptr) const; /* prefetch_filter arg modified by modular filter */
+                              bool prefetch_filter = false,
+                              bool* in_cache = nullptr)
+      const; /* prefetch_filter arg modified by modular filter */
 
   size_t ApproximateFilterBlockMemoryUsage() const;
 
  private:
   const BlockBasedTable* table_;
   CachableEntry<TBlocklike> filter_block_;
-  CachableEntry<TBlocklike> prefetch_filter_block_; // modified by modular filter
+  CachableEntry<TBlocklike>
+      prefetch_filter_block_;  // modified by modular filter
 };
 
 }  // namespace ROCKSDB_NAMESPACE

@@ -163,8 +163,12 @@ class CompactionIterator {
   const Slice& user_key() const { return current_user_key_; }
   const CompactionIterationStats& iter_stats() const { return iter_stats_; }
 
-  float AvgNumReads() const {return avg_num_reads_;} // modified for modular filters
-  float AvgNumTPs() const {return avg_num_tps_;} // modified for modular filters
+  float AvgNumReads() const {
+    return avg_num_reads_;
+  }  // modified for modular filters
+  float AvgNumTPs() const {
+    return avg_num_tps_;
+  }  // modified for modular filters
 
  private:
   // Processes the input stream to find the next output
@@ -354,7 +358,7 @@ class CompactionIterator {
            manual_compaction_paused_->load(std::memory_order_relaxed) > 0;
   }
 
-  float avg_num_reads_; // modified for modular filter
-  float avg_num_tps_; // modified for modular filter
+  float avg_num_reads_;  // modified for modular filter
+  float avg_num_tps_;    // modified for modular filter
 };
 }  // namespace ROCKSDB_NAMESPACE

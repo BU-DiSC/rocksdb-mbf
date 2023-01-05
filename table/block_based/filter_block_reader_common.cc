@@ -17,7 +17,8 @@ Status FilterBlockReaderCommon<TBlocklike>::ReadFilterBlock(
     const BlockBasedTable* table, FilePrefetchBuffer* prefetch_buffer,
     const ReadOptions& read_options, bool use_cache, GetContext* get_context,
     BlockCacheLookupContext* lookup_context,
-    CachableEntry<TBlocklike>* filter_block, bool prefetch_filter, bool* in_cache) { // modified by modular filters
+    CachableEntry<TBlocklike>* filter_block, bool prefetch_filter,
+    bool* in_cache) {  // modified by modular filters
   PERF_TIMER_GUARD(read_filter_block_nanos);
 
   assert(table);

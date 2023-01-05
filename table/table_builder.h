@@ -35,13 +35,16 @@ struct TableReaderOptions {
                      bool _skip_filters = false, bool _immortal = false,
                      bool _force_direct_prefetch = false, int _level = -1,
                      BlockCacheTracer* const _block_cache_tracer = nullptr,
-                     size_t _max_file_size_for_l0_meta_pin = 0, ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // added for modular filters
+                     size_t _max_file_size_for_l0_meta_pin = 0,
+                     ModularFilterReadType _mfilter_read_filters =
+                         kFirstFilterBlock)  // added for modular filters
       : TableReaderOptions(_ioptions, _prefix_extractor, _env_options,
                            _internal_comparator, _skip_filters, _immortal,
                            _force_direct_prefetch, _level,
                            0 /* _largest_seqno */, _block_cache_tracer,
-                           _max_file_size_for_l0_meta_pin, _mfilter_read_filters) // added for modular filters 
-                           {}
+                           _max_file_size_for_l0_meta_pin,
+                           _mfilter_read_filters)  // added for modular filters
+  {}
 
   // @param skip_filters Disables loading/accessing the filter block
   TableReaderOptions(const ImmutableCFOptions& _ioptions,
@@ -53,7 +56,8 @@ struct TableReaderOptions {
                      SequenceNumber _largest_seqno,
                      BlockCacheTracer* const _block_cache_tracer,
                      size_t _max_file_size_for_l0_meta_pin,
-                     ModularFilterReadType _mfilter_read_filters = kFirstFilterBlock) // added for modular filters
+                     ModularFilterReadType _mfilter_read_filters =
+                         kFirstFilterBlock)  // added for modular filters
       : ioptions(_ioptions),
         prefix_extractor(_prefix_extractor),
         env_options(_env_options),
@@ -65,7 +69,8 @@ struct TableReaderOptions {
         largest_seqno(_largest_seqno),
         block_cache_tracer(_block_cache_tracer),
         max_file_size_for_l0_meta_pin(_max_file_size_for_l0_meta_pin),
-                     mfilter_read_filters(_mfilter_read_filters) {}  // added for modular filters
+        mfilter_read_filters(_mfilter_read_filters) {
+  }  // added for modular filters
 
   const ImmutableCFOptions& ioptions;
   const SliceTransform* prefix_extractor;
@@ -150,7 +155,12 @@ class TableBuilder {
   // REQUIRES: Either Finish() or Abandon() has been called.
   virtual ~TableBuilder() {}
 
-  virtual float ResetPrefetchBPK(const ModularFilterMeta & /* curr_modular_filter_meta */, const ModularFilterMeta & /* total_modular_filter_meta */, double /* reallocated_prefetch_filter_block_size */) {return 0.0;} // modified by modular filters
+  virtual float ResetPrefetchBPK(
+      const ModularFilterMeta& /* curr_modular_filter_meta */,
+      const ModularFilterMeta& /* total_modular_filter_meta */,
+      double /* reallocated_prefetch_filter_block_size */) {
+    return 0.0;
+  }  // modified by modular filters
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.

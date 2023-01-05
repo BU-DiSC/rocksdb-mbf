@@ -59,15 +59,15 @@ enum ModularFilterReadType : char {
 };
 
 struct ModularFilterMeta {
-    double num_reads = 0.0;
-    double num_tps = 0.0;
-    uint64_t num_entries = 0;
-    float bpk = 0.0;
-    ModularFilterMeta(){
-	num_reads = 0.0;
-	num_tps = 0.0;
-	bpk = 0.0;
-    }
+  double num_reads = 0.0;
+  double num_tps = 0.0;
+  uint64_t num_entries = 0;
+  float bpk = 0.0;
+  ModularFilterMeta() {
+    num_reads = 0.0;
+    num_tps = 0.0;
+    bpk = 0.0;
+  }
 };
 
 // `PinningTier` is used to specify which tier of block-based tables should
@@ -315,6 +315,8 @@ struct BlockBasedTableOptions {
   bool concurrent_load = false;
   double prefetch_bpk = 0;
   bool bpk_bounded = true;
+  double util_threshold_1 = 0.02;
+  double util_threshold_2 = 0.01;
 
   // EXPERIMENTAL Option to generate Bloom filters that minimize memory
   // internal fragmentation.
@@ -713,11 +715,14 @@ class TableFactory : public Customizable {
 
   // Overload of the above function that allows the caller to pass in a
   // ReadOptions
-  virtual Status NewTableReader(
-      const ReadOptions& ro, const TableReaderOptions& table_reader_options,
-      std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
-      std::unique_ptr<TableReader>* table_reader,
-      bool prefetch_index_and_filter_in_cache, ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta()) const = 0;
+  virtual Status NewTableReader(const ReadOptions& ro,
+                                const TableReaderOptions& table_reader_options,
+                                std::unique_ptr<RandomAccessFileReader>&& file,
+                                uint64_t file_size,
+                                std::unique_ptr<TableReader>* table_reader,
+                                bool prefetch_index_and_filter_in_cache,
+                                ModularFilterMeta curr_modular_filter_meta =
+                                    ModularFilterMeta()) const = 0;
 
   // Return a table builder to write to a file for this table type.
   //
@@ -745,7 +750,7 @@ class TableFactory : public Customizable {
   virtual bool IsDeleteRangeSupported() const { return false; }
 
   // modified by modular filter
-  virtual float GetPrefetchBPK() { return 0.0;}
+  virtual float GetPrefetchBPK() { return 0.0; }
 };
 
 #ifndef ROCKSDB_LITE

@@ -160,11 +160,13 @@ class PlainTableFactory : public TableFactory {
   static const char* kClassName() { return kPlainTableName(); }
   const char* Name() const override { return kPlainTableName(); }
   using TableFactory::NewTableReader;
-  Status NewTableReader(const ReadOptions& ro,
-                        const TableReaderOptions& table_reader_options,
-                        std::unique_ptr<RandomAccessFileReader>&& file,
-                        uint64_t file_size, std::unique_ptr<TableReader>* table,
-                        bool prefetch_index_and_filter_in_cache, ModularFilterMeta curr_modular_filter_meta=ModularFilterMeta()) const override; // modified by modular filters
+  Status NewTableReader(
+      const ReadOptions& ro, const TableReaderOptions& table_reader_options,
+      std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
+      std::unique_ptr<TableReader>* table,
+      bool prefetch_index_and_filter_in_cache,
+      ModularFilterMeta curr_modular_filter_meta =
+          ModularFilterMeta()) const override;  // modified by modular filters
 
   TableBuilder* NewTableBuilder(
       const TableBuilderOptions& table_builder_options,

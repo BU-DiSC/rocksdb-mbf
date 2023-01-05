@@ -52,7 +52,7 @@ class XXH3pFilterBitsBuilder : public BuiltinFilterBitsBuilder {
 
   ~XXH3pFilterBitsBuilder() override {}
 
-  virtual void AddKey(const Slice& key) override { 
+  virtual void AddKey(const Slice& key) override {
     uint64_t hash = GetSliceHash64(key);
     // Especially with prefixes, it is common to have repetition,
     // though only adjacent repetition, which we want to immediately
@@ -195,7 +195,7 @@ class FastLocalBloomBitsBuilder : public XXH3pFilterBitsBuilder {
     assert(millibits_per_key >= 1000);
   }
 
-  void ResetBPK(double bpk) override { // modified for modular filters
+  void ResetBPK(double bpk) override {  // modified for modular filters
 
     millibits_per_key_ = static_cast<int>(bpk * 1000.0 + 0.500001);
   }
@@ -368,7 +368,7 @@ class FastLocalBloomBitsReader : public FilterBitsReader {
 
   ~FastLocalBloomBitsReader() override {}
 
-  bool MayMatch(const Slice& key) override { 
+  bool MayMatch(const Slice& key) override {
     uint64_t h = GetSliceHash64(key);
     uint32_t byte_offset;
     FastLocalBloomImpl::PrepareHash(Lower32of64(h), len_bytes_, data_,
@@ -440,7 +440,7 @@ class Standard128RibbonBitsBuilder : public XXH3pFilterBitsBuilder {
 
   ~Standard128RibbonBitsBuilder() override {}
 
-  void ResetBPK(double bpk) override { // modified for modular filters
+  void ResetBPK(double bpk) override {  // modified for modular filters
 
     bloom_fallback_.ResetBPK(bpk);
   }
@@ -774,7 +774,7 @@ class LegacyBloomBitsBuilder : public BuiltinFilterBitsBuilder {
 
   Slice Finish(std::unique_ptr<const char[]>* buf) override;
 
-  void ResetBPK(double bpk) override; // modified for modular filters
+  void ResetBPK(double bpk) override;  // modified for modular filters
 
   size_t CalculateSpace(size_t num_entries) override {
     uint32_t dont_care1;
@@ -818,10 +818,11 @@ LegacyBloomBitsBuilder::LegacyBloomBitsBuilder(const int bits_per_key,
   assert(bits_per_key_);
 }
 
-void LegacyBloomBitsBuilder::ResetBPK(double bpk) { // modified for modular filters
+void LegacyBloomBitsBuilder::ResetBPK(
+    double bpk) {  // modified for modular filters
 
-     bits_per_key_ = (static_cast<int>(bpk * 1000.0 + 0.500001) + 500) / 1000;
-     num_probes_ = LegacyNoLocalityBloomImpl::ChooseNumProbes(bits_per_key_);
+  bits_per_key_ = (static_cast<int>(bpk * 1000.0 + 0.500001) + 500) / 1000;
+  num_probes_ = LegacyNoLocalityBloomImpl::ChooseNumProbes(bits_per_key_);
 }
 
 LegacyBloomBitsBuilder::~LegacyBloomBitsBuilder() {}
@@ -1021,7 +1022,7 @@ class AlwaysTrueFilter : public FilterBitsReader {
 
 class AlwaysFalseFilter : public FilterBitsReader {
  public:
-  bool MayMatch(const Slice&) override { return false; } 
+  bool MayMatch(const Slice&) override { return false; }
   using FilterBitsReader::MayMatch;  // inherit overload
 };
 
@@ -1043,7 +1044,7 @@ const std::vector<BloomFilterPolicy::Mode> BloomFilterPolicy::kAllUserModes = {
 BloomFilterPolicy::BloomFilterPolicy(double bits_per_key, Mode mode)
     : mode_(mode), warned_(false), aggregate_rounding_balance_(0) {
   // Sanitize bits_per_key
-  bits_per_key_ = bits_per_key; // modified for modular filters
+  bits_per_key_ = bits_per_key;  // modified for modular filters
   if (bits_per_key < 1.0) {
     bits_per_key = 1.0;
   } else if (!(bits_per_key < 100.0)) {  // including NaN
@@ -1141,21 +1142,22 @@ FilterBitsBuilder* BloomFilterPolicy::GetFilterBitsBuilder() const {
 }
 
 FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
-    const FilterBuildingContext& context, double bpk, bool prefetch) const { // modified by modular filter
+    const FilterBuildingContext& context, double bpk,
+    bool prefetch) const {  // modified by modular filter
 
   int millibits_per_key, whole_bits_per_key;
-  if(prefetch){
-     double tmp_bits_per_key = bpk == 0.0 ? 1.0 : bpk;
-     millibits_per_key = static_cast<int>(tmp_bits_per_key * 1000.0 + 0.500001);
-     whole_bits_per_key = (millibits_per_key + 500) / 1000;
-  }else if(bpk != 0){
-     double tmp_bits_per_key = bits_per_key_ - bpk;
-     if(tmp_bits_per_key == 0.0) tmp_bits_per_key = 1.0;
-     millibits_per_key = static_cast<int>(tmp_bits_per_key * 1000.0 + 0.500001);
-     whole_bits_per_key = (millibits_per_key + 500) / 1000;
-  }else{
-     millibits_per_key = millibits_per_key_;
-     whole_bits_per_key = whole_bits_per_key_;
+  if (prefetch) {
+    double tmp_bits_per_key = bpk == 0.0 ? 1.0 : bpk;
+    millibits_per_key = static_cast<int>(tmp_bits_per_key * 1000.0 + 0.500001);
+    whole_bits_per_key = (millibits_per_key + 500) / 1000;
+  } else if (bpk != 0) {
+    double tmp_bits_per_key = bits_per_key_ - bpk;
+    if (tmp_bits_per_key == 0.0) tmp_bits_per_key = 1.0;
+    millibits_per_key = static_cast<int>(tmp_bits_per_key * 1000.0 + 0.500001);
+    whole_bits_per_key = (millibits_per_key + 500) / 1000;
+  } else {
+    millibits_per_key = millibits_per_key_;
+    whole_bits_per_key = whole_bits_per_key_;
   }
 
   Mode cur = mode_;
@@ -1177,11 +1179,12 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
         return new FastLocalBloomBitsBuilder(
             millibits_per_key, offm ? &aggregate_rounding_balance_ : nullptr);
       case kLegacyBloom:
-        if (whole_bits_per_key >= 14 && context.info_log && // modified by modular filters
+        if (whole_bits_per_key >= 14 &&
+            context.info_log &&  // modified by modular filters
             !warned_.load(std::memory_order_relaxed)) {
           warned_ = true;
           const char* adjective;
-          if (whole_bits_per_key >= 20) { // modified by modular filters
+          if (whole_bits_per_key >= 20) {  // modified by modular filters
             adjective = "Dramatic";
           } else {
             adjective = "Significant";
@@ -1193,13 +1196,15 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
               "Using legacy Bloom filter with high (%d) bits/key. "
               "%s filter space and/or accuracy improvement is available "
               "with format_version>=5.",
-              whole_bits_per_key, adjective); // modified by modular filters
+              whole_bits_per_key, adjective);  // modified by modular filters
         }
-        return new LegacyBloomBitsBuilder(whole_bits_per_key, // modified by modular filters
-                                          context.info_log);
+        return new LegacyBloomBitsBuilder(
+            whole_bits_per_key,  // modified by modular filters
+            context.info_log);
       case kStandard128Ribbon:
         return new Standard128RibbonBitsBuilder(
-            desired_one_in_fp_rate_, millibits_per_key, // modified by modular filters
+            desired_one_in_fp_rate_,
+            millibits_per_key,  // modified by modular filters
             offm ? &aggregate_rounding_balance_ : nullptr, context.info_log);
     }
   }
@@ -1208,9 +1213,11 @@ FilterBitsBuilder* BloomFilterPolicy::GetBuilderWithContext(
 }
 
 FilterBitsBuilder* BloomFilterPolicy::GetBuilderFromContext(
-    const FilterBuildingContext& context, double bpk, bool prefetch) { // modified by modular filters
+    const FilterBuildingContext& context, double bpk,
+    bool prefetch) {  // modified by modular filters
   if (context.table_options.filter_policy) {
-    return context.table_options.filter_policy->GetBuilderWithContext(context, bpk, prefetch);
+    return context.table_options.filter_policy->GetBuilderWithContext(
+        context, bpk, prefetch);
   } else {
     return nullptr;
   }

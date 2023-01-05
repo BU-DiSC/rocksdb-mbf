@@ -158,9 +158,10 @@ Status TableCache::FindTable(
     const InternalKeyComparator& internal_comparator, const FileDescriptor& fd,
     Cache::Handle** handle, const SliceTransform* prefix_extractor,
     const bool no_io, bool record_read_stats, HistogramImpl* file_read_hist,
-    bool skip_filters, int level, 
-    bool prefetch_index_and_filter_in_cache,
-    size_t max_file_size_for_l0_meta_pin, ModularFilterMeta curr_modular_filter_meta) {  // modified by modular filters
+    bool skip_filters, int level, bool prefetch_index_and_filter_in_cache,
+    size_t max_file_size_for_l0_meta_pin,
+    ModularFilterMeta
+        curr_modular_filter_meta) {  // modified by modular filters
   PERF_TIMER_GUARD_WITH_CLOCK(find_table_nanos, ioptions_.clock);
   uint64_t number = fd.GetNumber();
   Slice key = GetSliceForFileNumber(&number);
@@ -184,7 +185,8 @@ Status TableCache::FindTable(
         ro, file_options, internal_comparator, fd, false /* sequential mode */,
         record_read_stats, file_read_hist, &table_reader, prefix_extractor,
         skip_filters, level, prefetch_index_and_filter_in_cache,
-        max_file_size_for_l0_meta_pin, curr_modular_filter_meta); // modified by modular filters
+        max_file_size_for_l0_meta_pin,
+        curr_modular_filter_meta);  // modified by modular filters
     if (!s.ok()) {
       assert(table_reader == nullptr);
       RecordTick(ioptions_.statistics, NO_FILE_ERRORS);
@@ -225,10 +227,12 @@ InternalIterator* TableCache::NewIterator(
   table_reader = fd.table_reader;
   if (table_reader == nullptr) {
     // modified by modular filter
-    
+
     ModularFilterMeta curr_modular_filter_meta;
-    curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
-    curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.num_reads =
+        file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.num_tps =
+        file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
     curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
 
     s = FindTable(
@@ -441,21 +445,25 @@ Status TableCache::Get(const ReadOptions& options,
     assert(s.ok());
     // modified by modular filters
     ModularFilterMeta curr_modular_filter_meta;
-    curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
-    curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.num_reads =
+        file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+    curr_modular_filter_meta.num_tps =
+        file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
     curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
-    if (t == nullptr) { 
+    if (t == nullptr) {
       s = FindTable(options, file_options_, internal_comparator, fd, &handle,
                     prefix_extractor,
                     options.read_tier == kBlockCacheTier /* no_io */,
                     true /* record_read_stats */, file_read_hist, skip_filters,
                     level, true /* prefetch_index_and_filter_in_cache */,
-                    max_file_size_for_l0_meta_pin, curr_modular_filter_meta); //modified for modular filters 
+                    max_file_size_for_l0_meta_pin,
+                    curr_modular_filter_meta);  // modified for modular filters
       if (s.ok()) {
         t = GetTableReaderFromHandle(handle);
       }
     }
-    t->SetModularFilterMeta(curr_modular_filter_meta, get_perf_context()->num_point_lookups);
+    t->SetModularFilterMeta(curr_modular_filter_meta,
+                            get_perf_context()->num_point_lookups);
     SequenceNumber* max_covering_tombstone_seq =
         get_context->max_covering_tombstone_seq();
     if (s.ok() && max_covering_tombstone_seq != nullptr &&
@@ -553,15 +561,18 @@ Status TableCache::MultiGet(const ReadOptions& options,
     if (t == nullptr) {
       // modified by modular filters
       ModularFilterMeta curr_modular_filter_meta;
-      curr_modular_filter_meta.num_reads = file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
-      curr_modular_filter_meta.num_tps = file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
+      curr_modular_filter_meta.num_reads =
+          file_meta.stats.num_reads_sampled.load(std::memory_order_relaxed);
+      curr_modular_filter_meta.num_tps =
+          file_meta.stats.num_tps_sampled.load(std::memory_order_relaxed);
       curr_modular_filter_meta.bpk = file_meta.prefetch_bpk;
-
 
       s = FindTable(
           options, file_options_, internal_comparator, fd, &handle,
           prefix_extractor, options.read_tier == kBlockCacheTier /* no_io */,
-          true /* record_read_stats */, file_read_hist, skip_filters, level, true /* prefetch_index_and_filter_in_cache */, 0 /* max_file_size_for_l0_meta_pin */, curr_modular_filter_meta);
+          true /* record_read_stats */, file_read_hist, skip_filters, level,
+          true /* prefetch_index_and_filter_in_cache */,
+          0 /* max_file_size_for_l0_meta_pin */, curr_modular_filter_meta);
       TEST_SYNC_POINT_CALLBACK("TableCache::MultiGet:FindTable", &s);
       if (s.ok()) {
         t = GetTableReaderFromHandle(handle);

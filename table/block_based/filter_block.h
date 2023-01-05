@@ -70,7 +70,7 @@ class FilterBlockBuilder {
     assert(dont_care_status.ok());
     return ret;
   }
-  virtual void ResetFilterBuilder(float bpk) = 0; // modified by modular filter
+  virtual void ResetFilterBuilder(float bpk) = 0;  // modified by modular filter
   virtual Slice Finish(const BlockHandle& tmp, Status* status) = 0;
 };
 

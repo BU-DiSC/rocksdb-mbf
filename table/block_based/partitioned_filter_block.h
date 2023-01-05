@@ -34,7 +34,8 @@ class PartitionedFilterBlockBuilder : public FullFilterBlockBuilder {
   void AddKey(const Slice& key) override;
   void Add(const Slice& key) override;
 
-	virtual void ResetFilterBuilder(float /* bpk */) override {}; // modified by modular filters
+  virtual void ResetFilterBuilder(
+      float /* bpk */) override{};  // modified by modular filters
   virtual Slice Finish(const BlockHandle& last_partition_block_handle,
                        Status* status) override;
 

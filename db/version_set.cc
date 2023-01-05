@@ -993,10 +993,10 @@ class LevelIterator final : public InternalIterator {
   InternalIterator* NewFileIterator() {
     assert(file_index_ < flevel_->num_files);
     auto file_meta = flevel_->files[file_index_];
-    //if (should_sample_) {
-    //  sample_file_read_inc(file_meta.file_metadata);
-    //} 
-    // modified by modular filter
+    // if (should_sample_) {
+    //   sample_file_read_inc(file_meta.file_metadata);
+    // }
+    //  modified by modular filter
 
     const InternalKey* smallest_compaction_key = nullptr;
     const InternalKey* largest_compaction_key = nullptr;
@@ -1492,8 +1492,9 @@ void Version::GetColumnFamilyMetaData(ColumnFamilyMetaData* cf_meta) {
           file->fd.largest_seqno, file->smallest.user_key().ToString(),
           file->largest.user_key().ToString(),
           file->stats.num_reads_sampled.load(std::memory_order_relaxed),
-          file->stats.num_tps_sampled.load(std::memory_order_relaxed), // modified by modular filters
-          file->prefetch_bpk, // modified by modular filters
+          file->stats.num_tps_sampled.load(
+              std::memory_order_relaxed),  // modified by modular filters
+          file->prefetch_bpk,              // modified by modular filters
           file->being_compacted, file->oldest_blob_file_number,
           file->TryGetOldestAncesterTime(), file->TryGetFileCreationTime(),
           file->file_checksum, file->file_checksum_func_name});
@@ -1610,8 +1611,8 @@ void Version::AddIteratorsForLevel(const ReadOptions& read_options,
     return;
   }
 
-  //bool should_sample = should_sample_file_read();
-  //modified by modular filter
+  // bool should_sample = should_sample_file_read();
+  // modified by modular filter
 
   auto* arena = merge_iter_builder->GetArena();
   if (level == 0) {
@@ -1907,10 +1908,10 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
       // stop here.
       break;
     }
-    //if (get_context.sample()) {
-    //  sample_file_read_inc(f->file_metadata);
-    //}
-    //modified by modular filters
+    // if (get_context.sample()) {
+    //   sample_file_read_inc(f->file_metadata);
+    // }
+    // modified by modular filters
     sample_file_read_inc(f->file_metadata);
 
     bool timer_enabled =
@@ -1958,7 +1959,7 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
         PERF_COUNTER_BY_LEVEL_ADD(user_key_return_count, 1,
                                   fp.GetHitFileLevel());
 
-        file_num_tp_inc(f->file_metadata); // modified by modular filters
+        file_num_tp_inc(f->file_metadata);  // modified by modular filters
 
         if (is_blob_index) {
           if (do_merge && value) {
@@ -2156,7 +2157,7 @@ void Version::MultiGet(const ReadOptions& read_options, MultiGetRange* range,
                                     fp.GetHitFileLevel());
 
           file_range.MarkKeyDone(iter);
-          file_num_tp_inc(f->file_metadata); // modified by modular filters
+          file_num_tp_inc(f->file_metadata);  // modified by modular filters
           if (iter->is_blob_index) {
             if (iter->value) {
               constexpr uint64_t* bytes_read = nullptr;
@@ -5117,16 +5118,16 @@ Status VersionSet::WriteCurrentStateToManifest(
       for (int level = 0; level < cfd->NumberLevels(); level++) {
         for (const auto& f :
              cfd->current()->storage_info()->LevelFiles(level)) {
-          edit.AddFile(level, f->fd.GetNumber(), f->fd.GetPathId(),
-                       f->fd.GetFileSize(), f->smallest, f->largest,
-                       f->fd.smallest_seqno, f->fd.largest_seqno,
-                       f->marked_for_compaction, f->oldest_blob_file_number,
-                       f->oldest_ancester_time, f->file_creation_time,
-                       f->file_checksum, f->file_checksum_func_name,
-                       f->num_entries,
-                       f->stats.num_reads_sampled.load(std::memory_order_relaxed),
-                       f->stats.num_tps_sampled.load(std::memory_order_relaxed),
-                       f->prefetch_bpk); // modified by modular filters
+          edit.AddFile(
+              level, f->fd.GetNumber(), f->fd.GetPathId(), f->fd.GetFileSize(),
+              f->smallest, f->largest, f->fd.smallest_seqno,
+              f->fd.largest_seqno, f->marked_for_compaction,
+              f->oldest_blob_file_number, f->oldest_ancester_time,
+              f->file_creation_time, f->file_checksum,
+              f->file_checksum_func_name, f->num_entries,
+              f->stats.num_reads_sampled.load(std::memory_order_relaxed),
+              f->stats.num_tps_sampled.load(std::memory_order_relaxed),
+              f->prefetch_bpk);  // modified by modular filters
         }
       }
 
@@ -5589,7 +5590,8 @@ void VersionSet::GetLiveFilesMetaData(std::vector<LiveFileMetaData>* metadata) {
         filemetadata.largest_seqno = file->fd.largest_seqno;
         filemetadata.num_reads_sampled = file->stats.num_reads_sampled.load(
             std::memory_order_relaxed);
-        filemetadata.prefetch_bpk = file->prefetch_bpk; // modified by modular filters
+        filemetadata.prefetch_bpk =
+            file->prefetch_bpk;  // modified by modular filters
         filemetadata.being_compacted = file->being_compacted;
         filemetadata.num_entries = file->num_entries;
         filemetadata.num_deletions = file->num_deletions;

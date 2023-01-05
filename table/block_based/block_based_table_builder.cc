@@ -328,7 +328,8 @@ struct BlockBasedTableBuilder::Rep {
 
   const bool use_delta_encoding_for_index_values;
   std::unique_ptr<FilterBlockBuilder> filter_builder;
-  std::unique_ptr<FilterBlockBuilder> prefetch_filter_builder; // modified by modular filters
+  std::unique_ptr<FilterBlockBuilder>
+      prefetch_filter_builder;  // modified by modular filters
   char compressed_cache_key_prefix[BlockBasedTable::kMaxCacheKeyPrefixSize];
   size_t compressed_cache_key_prefix_size;
 
@@ -352,8 +353,8 @@ struct BlockBasedTableBuilder::Rep {
 
   std::unique_ptr<ParallelCompressionRep> pc_rep;
 
-  float prefetch_bpk_ = 0; // modified by modular filters
-  float total_bpk_ = 0; // modified by modular filters
+  float prefetch_bpk_ = 0;  // modified by modular filters
+  float total_bpk_ = 0;     // modified by modular filters
 
   uint64_t get_offset() { return offset.load(std::memory_order_relaxed); }
   void set_offset(uint64_t o) { offset.store(o, std::memory_order_relaxed); }
@@ -520,9 +521,9 @@ struct BlockBasedTableBuilder::Rep {
             p_index_builder_, true));  // modified by modular filters
       }
 
-	if(table_options.filter_policy){ //modified by modular filiters
-	      total_bpk_ = table_options.filter_policy->GetBitsPerKey();
-	}
+      if (table_options.filter_policy) {  // modified by modular filiters
+        total_bpk_ = table_options.filter_policy->GetBitsPerKey();
+      }
     }
 
     for (auto& collector_factories : *int_tbl_prop_collector_factories) {
@@ -920,29 +921,45 @@ BlockBasedTableBuilder::~BlockBasedTableBuilder() {
 }
 
 float BlockBasedTableBuilder::ResetPrefetchBPK(
-    const ModularFilterMeta & curr_modular_filter_meta , const ModularFilterMeta & total_modular_filter_meta , double reallocated_prefetch_filter_block_size ) {  // modified by modular filters
+    const ModularFilterMeta& curr_modular_filter_meta,
+    const ModularFilterMeta& total_modular_filter_meta,
+    double reallocated_prefetch_filter_block_size) {  // modified by modular
+                                                      // filters
   float bpk = 0.0;
   if (rep_ != nullptr) {
     if (rep_->table_options.modular_filters) {
       if (!rep_->table_options.adaptive_prefetch_modular_filters ||
           rep_->level_at_creation == 0) {
         bpk = rep_->table_options.prefetch_bpk;
-      }else if(rep_->table_options.adaptive_prefetch_modular_filters){
-	if(total_modular_filter_meta.num_reads == 0){
-	   bpk = reallocated_prefetch_filter_block_size/total_modular_filter_meta.num_entries;
-	}else if(curr_modular_filter_meta.num_reads == 0){
-	   bpk = 0.0;
-	}else if(curr_modular_filter_meta.num_reads == curr_modular_filter_meta.num_reads){
-	   bpk = reallocated_prefetch_filter_block_size/curr_modular_filter_meta.num_entries;
-	}else{
-	   double u_t = curr_modular_filter_meta.num_reads*1.0/total_modular_filter_meta.num_reads*(1 - curr_modular_filter_meta.num_tps*1.0/curr_modular_filter_meta.num_reads);
-	   double u_e = (1 - curr_modular_filter_meta.num_reads*1.0/total_modular_filter_meta.num_reads)*(1 - (total_modular_filter_meta.num_tps - curr_modular_filter_meta.num_tps)*1.0/(total_modular_filter_meta.num_reads - curr_modular_filter_meta.num_reads));
-	   bpk = reallocated_prefetch_filter_block_size*u_t/(u_t + u_e)/curr_modular_filter_meta.num_entries;
-	}
+      } else if (rep_->table_options.adaptive_prefetch_modular_filters) {
+        if (total_modular_filter_meta.num_reads == 0) {
+          bpk = reallocated_prefetch_filter_block_size /
+                total_modular_filter_meta.num_entries;
+        } else if (curr_modular_filter_meta.num_reads == 0) {
+          bpk = 0.0;
+        } else if (curr_modular_filter_meta.num_reads ==
+                   curr_modular_filter_meta.num_reads) {
+          bpk = reallocated_prefetch_filter_block_size /
+                curr_modular_filter_meta.num_entries;
+        } else {
+          double u_t = curr_modular_filter_meta.num_reads * 1.0 /
+                       total_modular_filter_meta.num_reads *
+                       (1 - curr_modular_filter_meta.num_tps * 1.0 /
+                                curr_modular_filter_meta.num_reads);
+          double u_e = (1 - curr_modular_filter_meta.num_reads * 1.0 /
+                                total_modular_filter_meta.num_reads) *
+                       (1 - (total_modular_filter_meta.num_tps -
+                             curr_modular_filter_meta.num_tps) *
+                                1.0 /
+                                (total_modular_filter_meta.num_reads -
+                                 curr_modular_filter_meta.num_reads));
+          bpk = reallocated_prefetch_filter_block_size * u_t / (u_t + u_e) /
+                curr_modular_filter_meta.num_entries;
+        }
 
-	if(rep_->table_options.bpk_bounded && bpk > rep_->total_bpk_){
-	    bpk = rep_->total_bpk_;
-	}
+        if (rep_->table_options.bpk_bounded && bpk > rep_->total_bpk_) {
+          bpk = rep_->total_bpk_;
+        }
       }
 
       if (bpk < 1.0) {
@@ -1019,8 +1036,10 @@ void BlockBasedTableBuilder::Add(const Slice& key, const Slice& value) {
           size_t ts_sz =
               r->internal_comparator.user_comparator()->timestamp_size();
           r->filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
-	  if(r->prefetch_filter_builder != nullptr){ // modified by modular filters
-	      r->prefetch_filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
+          if (r->prefetch_filter_builder !=
+              nullptr) {  // modified by modular filters
+            r->prefetch_filter_builder->Add(
+                ExtractUserKeyAndStripTimestamp(key, ts_sz));
           }
         }
       }
@@ -1884,8 +1903,10 @@ void BlockBasedTableBuilder::EnterUnbuffered() {
               r->internal_comparator.user_comparator()->timestamp_size();
           r->filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
 
-	  if(r->prefetch_filter_builder != nullptr){ // modified by modular filters
-	      r->prefetch_filter_builder->Add(ExtractUserKeyAndStripTimestamp(key, ts_sz));
+          if (r->prefetch_filter_builder !=
+              nullptr) {  // modified by modular filters
+            r->prefetch_filter_builder->Add(
+                ExtractUserKeyAndStripTimestamp(key, ts_sz));
           }
         }
         r->index_builder->OnKeyAdded(key);
@@ -2027,8 +2048,10 @@ const char* BlockBasedTableBuilder::GetFileChecksumFuncName() const {
 
 const std::string BlockBasedTable::kFilterBlockPrefix = "filter.";
 const std::string BlockBasedTable::kFullFilterBlockPrefix = "fullfilter.";
-const std::string BlockBasedTable::kModularFilterBlockPrefix = "modularfilter."; /* added for modular filter */
-const std::string BlockBasedTable::kPrefetchModularFilterBlockPrefix = "prefetch.modularfilter."; /* added for modular filter */
+const std::string BlockBasedTable::kModularFilterBlockPrefix =
+    "modularfilter."; /* added for modular filter */
+const std::string BlockBasedTable::kPrefetchModularFilterBlockPrefix =
+    "prefetch.modularfilter."; /* added for modular filter */
 const std::string BlockBasedTable::kPartitionedFilterBlockPrefix =
     "partitionedfilter.";
 }  // namespace ROCKSDB_NAMESPACE

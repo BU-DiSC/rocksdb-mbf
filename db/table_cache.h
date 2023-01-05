@@ -140,7 +140,8 @@ class TableCache {
                    bool skip_filters = false, int level = -1,
                    bool prefetch_index_and_filter_in_cache = true,
                    size_t max_file_size_for_l0_meta_pin = 0,
-                  ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta()); // modified by modular filters
+                   ModularFilterMeta curr_modular_filter_meta =
+                       ModularFilterMeta());  // modified by modular filters
 
   // Get TableReader from a cache handle.
   TableReader* GetTableReaderFromHandle(Cache::Handle* handle);
@@ -198,16 +199,16 @@ class TableCache {
 
  private:
   // Build a table reader
-  Status GetTableReader(const ReadOptions& ro, const FileOptions& file_options,
-                        const InternalKeyComparator& internal_comparator,
-                        const FileDescriptor& fd, bool sequential_mode,
-                        bool record_read_stats, HistogramImpl* file_read_hist,
-                        std::unique_ptr<TableReader>* table_reader,
-                        const SliceTransform* prefix_extractor = nullptr,
-                        bool skip_filters = false, int level = -1,
-                        bool prefetch_index_and_filter_in_cache = true,
-                        size_t max_file_size_for_l0_meta_pin = 0,
-                        ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta());
+  Status GetTableReader(
+      const ReadOptions& ro, const FileOptions& file_options,
+      const InternalKeyComparator& internal_comparator,
+      const FileDescriptor& fd, bool sequential_mode, bool record_read_stats,
+      HistogramImpl* file_read_hist, std::unique_ptr<TableReader>* table_reader,
+      const SliceTransform* prefix_extractor = nullptr,
+      bool skip_filters = false, int level = -1,
+      bool prefetch_index_and_filter_in_cache = true,
+      size_t max_file_size_for_l0_meta_pin = 0,
+      ModularFilterMeta curr_modular_filter_meta = ModularFilterMeta());
 
   // Create a key prefix for looking up the row cache. The prefix is of the
   // format row_cache_id + fd_number + seq_no. Later, the user key can be

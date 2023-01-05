@@ -68,7 +68,8 @@ void FullFilterBlockBuilder::Add(const Slice& key_without_ts) {
 
 // Add key to filter if needed
 inline void FullFilterBlockBuilder::AddKey(const Slice& key) {
-  filter_bits_builder_->AddKey(key); // modified for modular filters, share hashing
+  filter_bits_builder_->AddKey(
+      key);  // modified for modular filters, share hashing
   num_added_++;
 }
 
@@ -270,8 +271,6 @@ void FullFilterBlockReader::MayMatch(
       filter_range.SkipKey(iter);
     }
   }
-
-  
 
   filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
 

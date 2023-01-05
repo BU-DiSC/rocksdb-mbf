@@ -33,9 +33,12 @@ struct IterateResult {
 template <class TValue>
 class InternalIteratorBase : public Cleanable {
  public:
-  float avg_num_reads; // modified for modular filters
-  float avg_num_tps; // modified for modular filters
-  InternalIteratorBase() {avg_num_reads=0.0;avg_num_tps=0.0;} // modified for modular filters
+  float avg_num_reads;  // modified for modular filters
+  float avg_num_tps;    // modified for modular filters
+  InternalIteratorBase() {
+    avg_num_reads = 0.0;
+    avg_num_tps = 0.0;
+  }  // modified for modular filters
 
   // No copying allowed
   InternalIteratorBase(const InternalIteratorBase&) = delete;

@@ -133,7 +133,7 @@ Status DBImpl::PromoteL0(ColumnFamilyHandle* column_family, int target_level) {
                    f->file_checksum, f->file_checksum_func_name, f->num_entries,
                    f->stats.num_reads_sampled.load(std::memory_order_relaxed),
                    f->stats.num_tps_sampled.load(std::memory_order_relaxed),
-                   f->prefetch_bpk); // modified by modular filters
+                   f->prefetch_bpk);  // modified by modular filters
     }
 
     status = versions_->LogAndApply(cfd, *cfd->GetLatestMutableCFOptions(),

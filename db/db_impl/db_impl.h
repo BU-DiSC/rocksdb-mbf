@@ -1566,6 +1566,7 @@ class DBImpl : public DB {
     return WaitForFlushMemTables({cfd}, {flush_memtable_id},
                                  resuming_from_bg_err);
   }
+
  private:
   // Wait for memtables to be flushed for multiple column families.
   Status WaitForFlushMemTables(

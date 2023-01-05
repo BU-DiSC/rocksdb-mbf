@@ -109,7 +109,9 @@ Status Iterator::GetProperty(std::string prop_name, std::string* prop) {
 namespace {
 class EmptyIterator : public Iterator {
  public:
-  explicit EmptyIterator(const Status& s) : status_(s) { avg_num_reads = 0.0; } // modified for modular filters
+  explicit EmptyIterator(const Status& s) : status_(s) {
+    avg_num_reads = 0.0;
+  }  // modified for modular filters
   bool Valid() const override { return false; }
   void Seek(const Slice& /*target*/) override {}
   void SeekForPrev(const Slice& /*target*/) override {}

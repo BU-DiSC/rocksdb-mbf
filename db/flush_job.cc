@@ -449,15 +449,17 @@ Status FlushJob::WriteLevel0Table() {
     // threads could be concurrently producing compacted files for
     // that key range.
     // Add file to L0
-    edit_->AddFile(0 /* level */, meta_.fd.GetNumber(), meta_.fd.GetPathId(), meta_.fd.GetFileSize(), meta_.smallest, meta_.largest,
-                   meta_.fd.smallest_seqno, meta_.fd.largest_seqno,
-                   meta_.marked_for_compaction, meta_.oldest_blob_file_number,
-                   meta_.oldest_ancester_time, meta_.file_creation_time,
-                   meta_.file_checksum, meta_.file_checksum_func_name,
-                   meta_.num_entries,
-                   meta_.stats.num_reads_sampled.load(std::memory_order_relaxed),
-                   meta_.stats.num_tps_sampled.load(std::memory_order_relaxed),
-                   cfd_->ioptions()->table_factory->GetPrefetchBPK()); // modified by modular filters
+    edit_->AddFile(
+        0 /* level */, meta_.fd.GetNumber(), meta_.fd.GetPathId(),
+        meta_.fd.GetFileSize(), meta_.smallest, meta_.largest,
+        meta_.fd.smallest_seqno, meta_.fd.largest_seqno,
+        meta_.marked_for_compaction, meta_.oldest_blob_file_number,
+        meta_.oldest_ancester_time, meta_.file_creation_time,
+        meta_.file_checksum, meta_.file_checksum_func_name, meta_.num_entries,
+        meta_.stats.num_reads_sampled.load(std::memory_order_relaxed),
+        meta_.stats.num_tps_sampled.load(std::memory_order_relaxed),
+        cfd_->ioptions()
+            ->table_factory->GetPrefetchBPK());  // modified by modular filters
 
     edit_->SetBlobFileAdditions(std::move(blob_file_additions));
   }

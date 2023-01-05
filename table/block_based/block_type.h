@@ -15,7 +15,7 @@ namespace ROCKSDB_NAMESPACE {
 
 enum class BlockType : uint8_t {
   kData,
-  kPrefetchFilter, // modified by modular filters
+  kPrefetchFilter,  // modified by modular filters
   kFilter,
   kProperties,
   kCompressionDictionary,

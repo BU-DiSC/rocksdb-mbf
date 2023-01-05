@@ -143,7 +143,9 @@ class TableReader {
     return Status::NotSupported("VerifyChecksum() not supported");
   }
 
-  virtual void SetModularFilterMeta(ModularFilterMeta & /*curr_modular_filter_meta*/, uint64_t /*num_point_lookups*/) { 
+  virtual void SetModularFilterMeta(
+      ModularFilterMeta& /*curr_modular_filter_meta*/,
+      uint64_t /*num_point_lookups*/) {
     return;
   }
 };

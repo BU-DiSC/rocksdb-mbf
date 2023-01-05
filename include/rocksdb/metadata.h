@@ -73,8 +73,8 @@ struct SstFileMetaData {
                   SequenceNumber _smallest_seqno, SequenceNumber _largest_seqno,
                   const std::string& _smallestkey,
                   const std::string& _largestkey, uint64_t _num_reads_sampled,
-                  uint64_t _num_tps, float _prefetch_bpk,
-                  bool _being_compacted, uint64_t _oldest_blob_file_number,
+                  uint64_t _num_tps, float _prefetch_bpk, bool _being_compacted,
+                  uint64_t _oldest_blob_file_number,
                   uint64_t _oldest_ancester_time, uint64_t _file_creation_time,
                   std::string& _file_checksum,
                   std::string& _file_checksum_func_name)
@@ -116,7 +116,7 @@ struct SstFileMetaData {
   // added for modular filters
   uint64_t num_tps;
   float prefetch_bpk;
-  
+
   bool being_compacted;  // true if the file is currently being compacted.
 
   uint64_t num_entries;

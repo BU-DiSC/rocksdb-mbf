@@ -967,18 +967,22 @@ class VersionBuilder::Rep {
         int level = files_meta[file_idx].second;
         // added by modular filiter
         ModularFilterMeta curr_modular_filter_meta;
-        curr_modular_filter_meta.num_reads = file_meta->stats.num_reads_sampled.load(std::memory_order_relaxed);
-        curr_modular_filter_meta.num_tps = file_meta->stats.num_tps_sampled.load(std::memory_order_relaxed);
-        curr_modular_filter_meta.bpk = file_meta->prefetch_bpk; // TODO, adaptive prefix bpk should change here	
+        curr_modular_filter_meta.num_reads =
+            file_meta->stats.num_reads_sampled.load(std::memory_order_relaxed);
+        curr_modular_filter_meta.num_tps =
+            file_meta->stats.num_tps_sampled.load(std::memory_order_relaxed);
+        curr_modular_filter_meta.bpk =
+            file_meta
+                ->prefetch_bpk;  // TODO, adaptive prefix bpk should change here
 
-        
         statuses[file_idx] = table_cache_->FindTable(
             ReadOptions(), file_options_,
             *(base_vstorage_->InternalComparator()), file_meta->fd,
             &file_meta->table_reader_handle, prefix_extractor, false /*no_io */,
             true /* record_read_stats */,
             internal_stats->GetFileReadHist(level), false, level,
-            prefetch_index_and_filter_in_cache, max_file_size_for_l0_meta_pin, curr_modular_filter_meta); // modified by modular filter
+            prefetch_index_and_filter_in_cache, max_file_size_for_l0_meta_pin,
+            curr_modular_filter_meta);  // modified by modular filter
         if (file_meta->table_reader_handle != nullptr) {
           // Load table_reader
           file_meta->fd.table_reader = table_cache_->GetTableReaderFromHandle(

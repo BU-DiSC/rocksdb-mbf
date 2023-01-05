@@ -38,8 +38,8 @@
 #include "rocksdb/compaction_job_stats.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
-#include "rocksdb/table.h" // modified by modular filters
 #include "rocksdb/memtablerep.h"
+#include "rocksdb/table.h"  // modified by modular filters
 #include "rocksdb/transaction_log.h"
 #include "table/scoped_arena_iterator.h"
 #include "util/autovector.h"
@@ -130,7 +130,8 @@ class CompactionJob {
       const Status& input_status, SubcompactionState* sub_compact,
       CompactionRangeDelAggregator* range_del_agg,
       CompactionIterationStats* range_del_out_stats,
-      const Slice* next_table_min_key = nullptr, uint64_t num_reads=0, uint64_t num_tps=0); //added for modular filters
+      const Slice* next_table_min_key = nullptr, uint64_t num_reads = 0,
+      uint64_t num_tps = 0);  // added for modular filters
   Status InstallCompactionResults(const MutableCFOptions& mutable_cf_options);
   void RecordCompactionIOStats();
   Status OpenCompactionOutputFile(SubcompactionState* sub_compact);
@@ -200,9 +201,10 @@ class CompactionJob {
   bool measure_io_stats_;
   // Stores the Slices that designate the boundaries for each subcompaction
   std::vector<Slice> boundaries_;
-  double reallocated_prefetch_filter_block_size_; // modified by modular filters
-  ModularFilterMeta total_modular_filter_meta_; // modified by modular filters
-  
+  double
+      reallocated_prefetch_filter_block_size_;   // modified by modular filters
+  ModularFilterMeta total_modular_filter_meta_;  // modified by modular filters
+
   // Stores the approx size of keys covered in the range of each subcompaction
   std::vector<uint64_t> sizes_;
   Env::WriteLifeTimeHint write_hint_;

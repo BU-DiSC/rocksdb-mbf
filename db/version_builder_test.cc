@@ -130,7 +130,8 @@ class VersionBuilderTest : public testing::Test {
                   smallest_seqno, largest_seqno, marked_for_compaction,
                   blob_file_number, kUnknownOldestAncesterTime,
                   kUnknownFileCreationTime, kUnknownFileChecksum,
-                  kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                  kUnknownFileChecksumFuncName, 0, 0, 0,
+                  0.0);  // modified for modular filters
   }
 
   static std::shared_ptr<BlobFileMetaData> GetBlobFileMetaData(
@@ -190,7 +191,8 @@ TEST_F(VersionBuilderTest, ApplyAndSaveTo) {
                        GetInternalKey("350"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 10, 0, 0, 0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 10, 0, 0,
+                       0);  // modified for modular filters
   version_edit.DeleteFile(3, 27U);
 
   EnvOptions env_options;
@@ -230,7 +232,8 @@ TEST_F(VersionBuilderTest, ApplyAndSaveToDynamic) {
                        GetInternalKey("350"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 7, 0, 0, 0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 7, 0, 0,
+                       0);  // modified for modular filters
   version_edit.DeleteFile(0, 1U);
   version_edit.DeleteFile(0, 88U);
 
@@ -273,7 +276,8 @@ TEST_F(VersionBuilderTest, ApplyAndSaveToDynamic2) {
                        GetInternalKey("350"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 7, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 7, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.DeleteFile(0, 1U);
   version_edit.DeleteFile(0, 88U);
   version_edit.DeleteFile(4, 6U);
@@ -307,27 +311,32 @@ TEST_F(VersionBuilderTest, ApplyMultipleAndSaveTo) {
                        GetInternalKey("350"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 676, 0, 100U, GetInternalKey("401"),
                        GetInternalKey("450"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 636, 0, 100U, GetInternalKey("601"),
                        GetInternalKey("650"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 616, 0, 100U, GetInternalKey("501"),
                        GetInternalKey("550"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 606, 0, 100U, GetInternalKey("701"),
                        GetInternalKey("750"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
 
   EnvOptions env_options;
   constexpr TableCache* table_cache = nullptr;
@@ -364,27 +373,32 @@ TEST_F(VersionBuilderTest, ApplyDeleteAndSaveTo) {
                        GetInternalKey("350"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 676, 0, 100U, GetInternalKey("401"),
                        GetInternalKey("450"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0,0,0,0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 636, 0, 100U, GetInternalKey("601"),
                        GetInternalKey("650"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0,0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 616, 0, 100U, GetInternalKey("501"),
                        GetInternalKey("550"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit.AddFile(2, 606, 0, 100U, GetInternalKey("701"),
                        GetInternalKey("750"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   ASSERT_OK(version_builder.Apply(&version_edit));
 
   VersionEdit version_edit2;
@@ -392,14 +406,16 @@ TEST_F(VersionBuilderTest, ApplyDeleteAndSaveTo) {
                        GetInternalKey("950"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
   version_edit2.DeleteFile(2, 616);
   version_edit2.DeleteFile(2, 636);
   version_edit.AddFile(2, 806, 0, 100U, GetInternalKey("801"),
                        GetInternalKey("850"), 200, 200, false,
                        kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                        kUnknownFileCreationTime, kUnknownFileChecksum,
-                       kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                       kUnknownFileChecksumFuncName, 0, 0, 0,
+                       0.0);  // modified for modular filters
 
   ASSERT_OK(version_builder.Apply(&version_edit2));
   ASSERT_OK(version_builder.SaveTo(&new_vstorage));
@@ -500,8 +516,9 @@ TEST_F(VersionBuilderTest, ApplyFileDeletionAndAddition) {
                    GetInternalKey(largest, largest_seq), smallest_seqno,
                    largest_seqno, marked_for_compaction, kInvalidBlobFileNumber,
                    kUnknownOldestAncesterTime, kUnknownFileCreationTime,
-                   kUnknownFileChecksum, kUnknownFileChecksumFuncName, 0, 0, 0, 0.0);  // modified for modular filters
-  ASSERT_OK(builder.Apply(&addition)); 
+                   kUnknownFileChecksum, kUnknownFileChecksumFuncName, 0, 0, 0,
+                   0.0);  // modified for modular filters
+  ASSERT_OK(builder.Apply(&addition));
 
   constexpr bool force_consistency_checks = false;
   VersionStorageInfo new_vstorage(&icmp_, ucmp_, options_.num_levels,
@@ -543,7 +560,8 @@ TEST_F(VersionBuilderTest, ApplyFileAdditionAlreadyInBase) {
                smallest_seqno, largest_seqno, marked_for_compaction,
                kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                kUnknownFileCreationTime, kUnknownFileChecksum,
-               kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+               kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
 
   const Status s = builder.Apply(&edit);
   ASSERT_TRUE(s.IsCorruption());
@@ -576,7 +594,8 @@ TEST_F(VersionBuilderTest, ApplyFileAdditionAlreadyApplied) {
                GetInternalKey(largest), smallest_seqno, largest_seqno,
                marked_for_compaction, kInvalidBlobFileNumber,
                kUnknownOldestAncesterTime, kUnknownFileCreationTime,
-               kUnknownFileChecksum, kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+               kUnknownFileChecksum, kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
 
   ASSERT_OK(builder.Apply(&edit));
 
@@ -589,7 +608,8 @@ TEST_F(VersionBuilderTest, ApplyFileAdditionAlreadyApplied) {
                      smallest_seqno, largest_seqno, marked_for_compaction,
                      kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                      kUnknownFileCreationTime, kUnknownFileChecksum,
-                     kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                     kUnknownFileChecksumFuncName, 0, 0, 0,
+                     0.0);  // modified for modular filters
 
   const Status s = builder.Apply(&other_edit);
   ASSERT_TRUE(s.IsCorruption());
@@ -623,7 +643,8 @@ TEST_F(VersionBuilderTest, ApplyFileAdditionAndDeletion) {
                    smallest_seqno, largest_seqno, marked_for_compaction,
                    kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                    kUnknownFileCreationTime, kUnknownFileChecksum,
-                   kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+                   kUnknownFileChecksumFuncName, 0, 0, 0,
+                   0.0);  // modified for modular filters
 
   ASSERT_OK(builder.Apply(&addition));
 
@@ -1080,7 +1101,8 @@ TEST_F(VersionBuilderTest, SaveBlobFilesToConcurrentJobs) {
                GetInternalKey(smallest), GetInternalKey(largest),
                smallest_seqno, largest_seqno, marked_for_compaction,
                blob_file_number, kUnknownOldestAncesterTime,
-               kUnknownFileCreationTime, checksum_value, checksum_method, 0, 0, 0, 0.0); // modified for modular filters
+               kUnknownFileCreationTime, checksum_value, checksum_method, 0, 0,
+               0, 0.0);  // modified for modular filters
   edit.AddBlobFile(blob_file_number, total_blob_count, total_blob_bytes,
                    checksum_method, checksum_value);
 
@@ -1164,7 +1186,8 @@ TEST_F(VersionBuilderTest, CheckConsistencyForBlobFiles) {
                /* largest_seqno */ 200, /* marked_for_compaction */ false,
                /* oldest_blob_file_number */ 16, kUnknownOldestAncesterTime,
                kUnknownFileCreationTime, kUnknownFileChecksum,
-               kUnknownFileChecksumFuncName,  0, 0, 0,0.0); // modified for modular filters
+               kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
 
   edit.AddFile(/* level */ 1, /* file_number */ 700, /* path_id */ 0,
                /* file_size */ 100, /* smallest */ GetInternalKey("801"),
@@ -1172,7 +1195,8 @@ TEST_F(VersionBuilderTest, CheckConsistencyForBlobFiles) {
                /* largest_seqno */ 200, /* marked_for_compaction */ false,
                /* oldest_blob_file_number */ 1000, kUnknownOldestAncesterTime,
                kUnknownFileCreationTime, kUnknownFileChecksum,
-               kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+               kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
   edit.AddBlobFile(/* blob_file_number */ 1000, /* total_blob_count */ 2000,
                    /* total_blob_bytes */ 200000,
                    /* checksum_method */ std::string(),
@@ -1390,7 +1414,8 @@ TEST_F(VersionBuilderTest, MaintainLinkedSstsForBlobFiles) {
       /* largest_seqno */ 2100, /* marked_for_compaction */ false,
       /* oldest_blob_file_number */ 1, kUnknownOldestAncesterTime,
       kUnknownFileCreationTime, kUnknownFileChecksum,
-      kUnknownFileChecksumFuncName, 0, 0, 0, 0.0);  // modified for modular filters
+      kUnknownFileChecksumFuncName, 0, 0, 0,
+      0.0);  // modified for modular filters
 
   // Add an SST that does not reference any blob files.
   edit.AddFile(
@@ -1400,7 +1425,8 @@ TEST_F(VersionBuilderTest, MaintainLinkedSstsForBlobFiles) {
       /* largest_seqno */ 2200, /* marked_for_compaction */ false,
       kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
       kUnknownFileCreationTime, kUnknownFileChecksum,
-      kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+      kUnknownFileChecksumFuncName, 0, 0, 0,
+      0.0);  // modified for modular filters
 
   // Delete a file that references a blob file.
   edit.DeleteFile(/* level */ 1, /* file_number */ 6);
@@ -1422,7 +1448,8 @@ TEST_F(VersionBuilderTest, MaintainLinkedSstsForBlobFiles) {
                /* largest_seqno */ 300, /* marked_for_compaction */ false,
                /* oldest_blob_file_number */ 3, kUnknownOldestAncesterTime,
                kUnknownFileCreationTime, kUnknownFileChecksum,
-               kUnknownFileChecksumFuncName, 0, 0, 0, 0.0); // modified for modular filters
+               kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
 
   // Trivially move a file that does not reference any blob files.
   edit.DeleteFile(/* level */ 1, /* file_number */ 13);
@@ -1433,7 +1460,8 @@ TEST_F(VersionBuilderTest, MaintainLinkedSstsForBlobFiles) {
                /* largest_seqno */ 1300, /* marked_for_compaction */ false,
                kInvalidBlobFileNumber, kUnknownOldestAncesterTime,
                kUnknownFileCreationTime, kUnknownFileChecksum,
-               kUnknownFileChecksumFuncName,  0, 0, 0, 0.0);  // modified for modular filters
+               kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
 
   // Add one more SST file that references a blob file, then promptly
   // delete it in a second version edit before the new version gets saved.
@@ -1445,7 +1473,8 @@ TEST_F(VersionBuilderTest, MaintainLinkedSstsForBlobFiles) {
                /* largest_seqno */ 2300, /* marked_for_compaction */ false,
                /* oldest_blob_file_number */ 5, kUnknownOldestAncesterTime,
                kUnknownFileCreationTime, kUnknownFileChecksum,
-               kUnknownFileChecksumFuncName, 0, 0, 0,0.0); // modified for modular filters
+               kUnknownFileChecksumFuncName, 0, 0, 0,
+               0.0);  // modified for modular filters
 
   VersionEdit edit2;
 

@@ -60,7 +60,11 @@ class BlockBasedTableBuilder : public TableBuilder {
   // REQUIRES: Either Finish() or Abandon() has been called.
   ~BlockBasedTableBuilder();
 
-    float ResetPrefetchBPK(const ModularFilterMeta& curr_modular_filter_meta, const rocksdb::ModularFilterMeta& total_modular_filter_meta, double reallocated_prefetch_filter_block_size) override; // modified by modular filters
+  float ResetPrefetchBPK(
+      const ModularFilterMeta& curr_modular_filter_meta,
+      const rocksdb::ModularFilterMeta& total_modular_filter_meta,
+      double reallocated_prefetch_filter_block_size)
+      override;  // modified by modular filters
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.

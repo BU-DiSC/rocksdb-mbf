@@ -479,8 +479,12 @@ Status BlockBasedTableFactory::NewTableReader(
     const ReadOptions& ro, const TableReaderOptions& table_reader_options,
     std::unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
     std::unique_ptr<TableReader>* table_reader,
-    bool prefetch_index_and_filter_in_cache, ModularFilterMeta curr_modular_filter_meta ) const {
-    ModularFilterReadType mfilter_read_filters = BlockBasedTable::GetModularFilterReadType(table_options_, curr_modular_filter_meta, get_perf_context()->num_point_lookups); 
+    bool prefetch_index_and_filter_in_cache,
+    ModularFilterMeta curr_modular_filter_meta) const {
+  ModularFilterReadType mfilter_read_filters =
+      BlockBasedTable::GetModularFilterReadType(
+          table_options_, curr_modular_filter_meta,
+          get_perf_context()->num_point_lookups);
   return BlockBasedTable::Open(
       ro, table_reader_options.ioptions, table_reader_options.env_options,
       table_options_, table_reader_options.internal_comparator, std::move(file),
@@ -490,8 +494,7 @@ Status BlockBasedTableFactory::NewTableReader(
       table_reader_options.largest_seqno,
       table_reader_options.force_direct_prefetch, &tail_prefetch_stats_,
       table_reader_options.block_cache_tracer,
-      table_reader_options.max_file_size_for_l0_meta_pin,
-      mfilter_read_filters);
+      table_reader_options.max_file_size_for_l0_meta_pin, mfilter_read_filters);
 }
 
 TableBuilder* BlockBasedTableFactory::NewTableBuilder(

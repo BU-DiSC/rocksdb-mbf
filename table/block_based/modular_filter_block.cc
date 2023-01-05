@@ -3,10 +3,10 @@
 //  COPYING file in the root directory) and Apache 2.0 License
 //  (found in the LICENSE.Apache file in the root directory).
 
-
 #include "table/block_based/modular_filter_block.h"
-#include <functional>
+
 #include <array>
+#include <functional>
 #include <thread>
 
 #include "monitoring/perf_context_imp.h"
@@ -20,12 +20,13 @@
 namespace ROCKSDB_NAMESPACE {
 
 /*  avoid multiple hashing
-void TransformKey(const Slice & key, size_t index, bool prefetch, Slice & new_key){
-	
+void TransformKey(const Slice & key, size_t index, bool prefetch, Slice &
+new_key){
+
     std::string* result_ = new std::string();
     if(index == 0 && prefetch){
-	new_key = key.ToString();
-	return;
+        new_key = key.ToString();
+        return;
     }
 
     new_key.clear();
@@ -45,56 +46,55 @@ void TransformKey(const Slice & key, size_t index, bool prefetch, Slice & new_ke
 */
 
 ModularFilterBlockBuilder::ModularFilterBlockBuilder(
-    const SliceTransform* _prefix_extractor,
-    bool whole_key_filtering,
+    const SliceTransform* _prefix_extractor, bool whole_key_filtering,
     const FilterBuildingContext& context,
     /*const uint32_t partition_size,*/
-    double bpk,
-    bool prefetch)
-    : context_(context), prefix_extractor_(_prefix_extractor),
+    double bpk, bool prefetch)
+    : context_(context),
+      prefix_extractor_(_prefix_extractor),
       whole_key_filtering_(whole_key_filtering),
       last_whole_key_recorded_(false),
       last_prefix_recorded_(false),
       num_added_(0),
       bpk_(bpk),
-      prefetch_(prefetch){
-    filter_gc = std::unique_ptr<const char[]>(nullptr);
-    filter_bits_builder_ = BloomFilterPolicy::GetBuilderFromContext(context, bpk, prefetch_);
+      prefetch_(prefetch) {
+  filter_gc = std::unique_ptr<const char[]>(nullptr);
+  filter_bits_builder_ =
+      BloomFilterPolicy::GetBuilderFromContext(context, bpk, prefetch_);
 }
 
-
-void ModularFilterBlockBuilder::ResetFilterBuilder(float  bpk) {
-   filter_bits_builder_->ResetBPK(bpk); 
+void ModularFilterBlockBuilder::ResetFilterBuilder(float bpk) {
+  filter_bits_builder_->ResetBPK(bpk);
 }
 
 void ModularFilterBlockBuilder::Add(const Slice& key) {
   num_added_++;
   bool add_prefix = true;
   add_prefix = prefix_extractor_ && prefix_extractor_->InDomain(key);
-    if (whole_key_filtering_) {
-      if (!add_prefix) {
+  if (whole_key_filtering_) {
+    if (!add_prefix) {
+      AddKey(key);
+    } else {
+      // if both whole_key and prefix are added to bloom then we will have whole
+      // key and prefix addition being interleaved and thus cannot rely on the
+      // bits builder to properly detect the duplicates by comparing with the
+      // last item.
+      Slice last_whole_key = Slice(last_whole_key_str_);
+      if (!last_whole_key_recorded_ || last_whole_key.compare(key) != 0) {
         AddKey(key);
-      } else {
-        // if both whole_key and prefix are added to bloom then we will have whole
-        // key and prefix addition being interleaved and thus cannot rely on the
-        // bits builder to properly detect the duplicates by comparing with the
-        // last item.
-        Slice last_whole_key = Slice(last_whole_key_str_);
-        if (!last_whole_key_recorded_ || last_whole_key.compare(key) != 0) {
-          AddKey(key);
-          last_whole_key_recorded_ = true;
-          last_whole_key_str_.assign(key.data(), key.size());
-        }
+        last_whole_key_recorded_ = true;
+        last_whole_key_str_.assign(key.data(), key.size());
       }
     }
-    if (add_prefix) {
-      AddPrefix(key);
-    }
+  }
+  if (add_prefix) {
+    AddPrefix(key);
+  }
 }
 
 // Add key to filter if needed
 inline void ModularFilterBlockBuilder::AddKey(const Slice& key) {
-    filter_bits_builder_->AddKey(key);
+  filter_bits_builder_->AddKey(key);
 }
 
 // Add prefix to filter if needed
@@ -123,27 +123,25 @@ void ModularFilterBlockBuilder::Reset() {
   entries_.clear();
 }
 
-
 Slice ModularFilterBlockBuilder::Finish(const BlockHandle& /*tmp*/,
-                                     Status* status) {
-  
+                                        Status* status) {
   Reset();
   // In this impl we ignore BlockHandle
   *status = Status::OK();
-  if(num_added_ != 0){
+  if (num_added_ != 0) {
     num_added_ = 0;
-    return filter_bits_builder_->Finish(&filter_gc); 
-  }else{
+    return filter_bits_builder_->Finish(&filter_gc);
+  } else {
     return Slice();
   }
-
 }
 
 ModularFilterBlockReader::ModularFilterBlockReader(
     const BlockBasedTable* t,
     CachableEntry<ParsedFullFilterBlock>&& filter_block,
     CachableEntry<ParsedFullFilterBlock>&& prefetch_filter_block)
-    : FilterBlockReaderCommon(t, std::move(filter_block), std::move(prefetch_filter_block)) {
+    : FilterBlockReaderCommon(t, std::move(filter_block),
+                              std::move(prefetch_filter_block)) {
   const SliceTransform* const prefix_extractor = table_prefix_extractor();
   if (prefix_extractor) {
     full_length_enabled_ =
@@ -169,27 +167,31 @@ bool ModularFilterBlockReader::KeyMayMatch(
   return MayMatch(key, no_io, get_context, lookup_context);
 }
 
-void ModularFilterBlockReader::NextMayMatch(const Slice& entry, bool no_io, GetContext* get_context,BlockCacheLookupContext* lookup_context, bool & next_match, bool* in_cache_p) const{
-        CachableEntry<ParsedFullFilterBlock> filter_block;
-        if(table()->get_rep()->filter_handle.IsNull()) return;
-	next_match = true;
-    
-        const Status s =
-            GetOrReadFilterBlock(no_io, get_context, lookup_context, &filter_block, false, in_cache_p);
-        if (!s.ok()) {
-          IGNORE_STATUS_IF_ERROR(s);
-          return;
-        }
+void ModularFilterBlockReader::NextMayMatch(
+    const Slice& entry, bool no_io, GetContext* get_context,
+    BlockCacheLookupContext* lookup_context, bool& next_match,
+    bool* in_cache_p) const {
+  CachableEntry<ParsedFullFilterBlock> filter_block;
+  if (table()->get_rep()->filter_handle.IsNull()) return;
+  next_match = true;
 
-        if(!filter_block.GetValue()) {
-          next_match = true;
-          return;
-        }
+  const Status s = GetOrReadFilterBlock(no_io, get_context, lookup_context,
+                                        &filter_block, false, in_cache_p);
+  if (!s.ok()) {
+    IGNORE_STATUS_IF_ERROR(s);
+    return;
+  }
 
-        FilterBitsReader* filter_bits_reader = filter_block.GetValue()->filter_bits_reader();
-        if(filter_bits_reader){
-	  next_match = filter_bits_reader->MayMatch(entry);
-        }
+  if (!filter_block.GetValue()) {
+    next_match = true;
+    return;
+  }
+
+  FilterBitsReader* filter_bits_reader =
+      filter_block.GetValue()->filter_bits_reader();
+  if (filter_bits_reader) {
+    next_match = filter_bits_reader->MayMatch(entry);
+  }
 }
 
 std::unique_ptr<FilterBlockReader> ModularFilterBlockReader::Create(
@@ -199,36 +201,40 @@ std::unique_ptr<FilterBlockReader> ModularFilterBlockReader::Create(
   assert(table);
   assert(table->get_rep());
   assert(!pin || prefetch);
-  
-  CachableEntry<ParsedFullFilterBlock> filter_block; 
+
+  CachableEntry<ParsedFullFilterBlock> filter_block;
   CachableEntry<ParsedFullFilterBlock> prefetch_filter_block;
   if (prefetch || !use_cache) {
-     
-  ModularFilterReadType mfilter_read_type = table->get_rep()->mfilter_read_type;
-  bool in_cache = false;
-  bool* in_cache_p = &in_cache;
-    if(!table->get_rep()->prefetch_filter_handle.IsNull() && (mfilter_read_type == ModularFilterReadType::kFirstFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks)){ 
-        const Status prefetch_s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(), use_cache, nullptr /* get_context */, lookup_context, &prefetch_filter_block, true, in_cache_p);
-        if(!prefetch_s.ok()){
-          IGNORE_STATUS_IF_ERROR(prefetch_s);
-          return std::unique_ptr<FilterBlockReader>();
-        }
+    ModularFilterReadType mfilter_read_type =
+        table->get_rep()->mfilter_read_type;
+    bool in_cache = false;
+    bool* in_cache_p = &in_cache;
+    if (!table->get_rep()->prefetch_filter_handle.IsNull() &&
+        (mfilter_read_type == ModularFilterReadType::kFirstFilterBlock ||
+         mfilter_read_type == ModularFilterReadType::kBothFilterBlocks)) {
+      const Status prefetch_s =
+          ReadFilterBlock(table, prefetch_buffer, ReadOptions(), use_cache,
+                          nullptr /* get_context */, lookup_context,
+                          &prefetch_filter_block, true, in_cache_p);
+      if (!prefetch_s.ok()) {
+        IGNORE_STATUS_IF_ERROR(prefetch_s);
+        return std::unique_ptr<FilterBlockReader>();
+      }
     }
 
-
-
-    if(mfilter_read_type == ModularFilterReadType::kSecondFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks){
-        if(!table->get_rep()->filter_handle.IsNull()){
-            /// not cache the second filter block
-            const Status s = ReadFilterBlock(table, prefetch_buffer, ReadOptions(),
-                                         use_cache, nullptr /* get_context */,
-                                         lookup_context, &filter_block, in_cache_p);
-            if(!s.ok()){
-              IGNORE_STATUS_IF_ERROR(s);
-              return std::unique_ptr<FilterBlockReader>();
-            }
-
+    if (mfilter_read_type == ModularFilterReadType::kSecondFilterBlock ||
+        mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) {
+      if (!table->get_rep()->filter_handle.IsNull()) {
+        /// not cache the second filter block
+        const Status s =
+            ReadFilterBlock(table, prefetch_buffer, ReadOptions(), use_cache,
+                            nullptr /* get_context */, lookup_context,
+                            &filter_block, in_cache_p);
+        if (!s.ok()) {
+          IGNORE_STATUS_IF_ERROR(s);
+          return std::unique_ptr<FilterBlockReader>();
         }
+      }
     }
 
     if (use_cache && !pin) {
@@ -236,9 +242,9 @@ std::unique_ptr<FilterBlockReader> ModularFilterBlockReader::Create(
       prefetch_filter_block.Reset();
     }
   }
-  
-  return std::unique_ptr<FilterBlockReader>(
-      new ModularFilterBlockReader(table, std::move(filter_block), std::move(prefetch_filter_block)));
+
+  return std::unique_ptr<FilterBlockReader>(new ModularFilterBlockReader(
+      table, std::move(filter_block), std::move(prefetch_filter_block)));
 }
 
 bool ModularFilterBlockReader::PrefixMayMatch(
@@ -258,27 +264,35 @@ bool ModularFilterBlockReader::MayMatch(
     BlockCacheLookupContext* lookup_context) const {
   CachableEntry<ParsedFullFilterBlock> prefetch_filter_block;
 
-    assert(table());
-    assert(table()->get_rep());
+  assert(table());
+  assert(table()->get_rep());
 
   bool prefetch_match = true;
   bool next_match = true;
-  ModularFilterReadType mfilter_read_type = table()->get_rep()->mfilter_read_type;
-  bool require_next_match = mfilter_read_type == ModularFilterReadType::kSecondFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks;
+  ModularFilterReadType mfilter_read_type =
+      table()->get_rep()->mfilter_read_type;
+  bool require_next_match =
+      mfilter_read_type == ModularFilterReadType::kSecondFilterBlock ||
+      mfilter_read_type == ModularFilterReadType::kBothFilterBlocks;
   bool concurrent_load = table()->get_rep()->table_options.concurrent_load;
 
   bool in_cache = false;
   bool* in_cache_p = &in_cache;
 
   port::Thread next_match_thread;
-  if(require_next_match && concurrent_load){
-     next_match_thread = port::Thread(&ModularFilterBlockReader::NextMayMatch, this, std::ref(entry), no_io, std::ref(get_context), std::ref(lookup_context), std::ref(next_match), in_cache_p);
+  if (require_next_match && concurrent_load) {
+    next_match_thread = port::Thread(
+        &ModularFilterBlockReader::NextMayMatch, this, std::ref(entry), no_io,
+        std::ref(get_context), std::ref(lookup_context), std::ref(next_match),
+        in_cache_p);
   }
 
-
-  if((mfilter_read_type == ModularFilterReadType::kFirstFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){ 
+  if ((mfilter_read_type == ModularFilterReadType::kFirstFilterBlock ||
+       mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) &&
+      !table()->get_rep()->prefetch_filter_handle.IsNull()) {
     const Status prefetch_s =
-        GetOrReadFilterBlock(no_io, get_context, lookup_context, &prefetch_filter_block, true, in_cache_p);
+        GetOrReadFilterBlock(no_io, get_context, lookup_context,
+                             &prefetch_filter_block, true, in_cache_p);
     if (!prefetch_s.ok()) {
       IGNORE_STATUS_IF_ERROR(prefetch_s);
       return true;
@@ -286,23 +300,25 @@ bool ModularFilterBlockReader::MayMatch(
 
     assert(prefetch_filter_block.GetValue());
 
-    FilterBitsReader* const prefetch_filter_bits_reader = prefetch_filter_block.GetValue()->filter_bits_reader();
-    if(prefetch_filter_bits_reader){
+    FilterBitsReader* const prefetch_filter_bits_reader =
+        prefetch_filter_block.GetValue()->filter_bits_reader();
+    if (prefetch_filter_bits_reader) {
       prefetch_match = prefetch_filter_bits_reader->MayMatch(entry);
-    }  
+    }
   }
 
-  if(require_next_match && prefetch_match){
-      if(concurrent_load){
-         next_match_thread.join();
-      }else{
-          NextMayMatch(entry, no_io, get_context, lookup_context, next_match, in_cache_p);
-      }
+  if (require_next_match && prefetch_match) {
+    if (concurrent_load) {
+      next_match_thread.join();
+    } else {
+      NextMayMatch(entry, no_io, get_context, lookup_context, next_match,
+                   in_cache_p);
+    }
   }
-  bool match = prefetch_match && next_match; 
-  if (match ) { 
-     PERF_COUNTER_ADD(bloom_sst_hit_count, 1); 
-  }else{
+  bool match = prefetch_match && next_match;
+  if (match) {
+    PERF_COUNTER_ADD(bloom_sst_hit_count, 1);
+  } else {
     PERF_COUNTER_ADD(bloom_sst_miss_count, 1);
   }
   return match;  // remain the same with block_based filter
@@ -335,10 +351,6 @@ void ModularFilterBlockReader::PrefixesMayMatch(
   MayMatch(range, no_io, prefix_extractor, lookup_context);
 }
 
-
-
-
-
 void ModularFilterBlockReader::MayMatch(
     MultiGetRange* range, bool no_io, const SliceTransform* prefix_extractor,
     BlockCacheLookupContext* lookup_context) const {
@@ -347,11 +359,12 @@ void ModularFilterBlockReader::MayMatch(
   assert(table());
   assert(table()->get_rep());
 
+  ModularFilterReadType mfilter_read_type =
+      table()->get_rep()->mfilter_read_type;
+  bool require_next_match =
+      mfilter_read_type == ModularFilterReadType::kSecondFilterBlock ||
+      mfilter_read_type == ModularFilterReadType::kBothFilterBlocks;
 
-  
-  ModularFilterReadType mfilter_read_type = table()->get_rep()->mfilter_read_type;
-  bool require_next_match = mfilter_read_type == ModularFilterReadType::kSecondFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks;
-  
   // We need to use an array instead of autovector for may_match since
   // &may_match[0] doesn't work for autovector<bool> (compiler error). So
   // declare both keys and may_match as arrays, which is also slightly less
@@ -373,35 +386,39 @@ void ModularFilterBlockReader::MayMatch(
   }
 
   bool prefetch_match = false;
-  
-  if((mfilter_read_type == ModularFilterReadType::kFirstFilterBlock || mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) && !table()->get_rep()->prefetch_filter_handle.IsNull()){
-    const Status prefetch_s = GetOrReadFilterBlock(no_io, range->begin()->get_context,
-                                          lookup_context, &prefetch_filter_block, true);
+
+  if ((mfilter_read_type == ModularFilterReadType::kFirstFilterBlock ||
+       mfilter_read_type == ModularFilterReadType::kBothFilterBlocks) &&
+      !table()->get_rep()->prefetch_filter_handle.IsNull()) {
+    const Status prefetch_s =
+        GetOrReadFilterBlock(no_io, range->begin()->get_context, lookup_context,
+                             &prefetch_filter_block, true);
     if (!prefetch_s.ok()) {
       IGNORE_STATUS_IF_ERROR(prefetch_s);
       return;
     }
 
     assert(prefetch_filter_block.GetValue());
-    FilterBitsReader* const prefetch_filter_bits_reader = prefetch_filter_block.GetValue()->filter_bits_reader();
-    
+    FilterBitsReader* const prefetch_filter_bits_reader =
+        prefetch_filter_block.GetValue()->filter_bits_reader();
+
     if (prefetch_filter_bits_reader) {
-          prefetch_filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
+      prefetch_filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
     }
     int i = 0;
     for (auto iter = filter_range.begin(); iter != filter_range.end(); ++iter) {
       if (may_match[i]) {
         prefetch_match = true;
-        break; 
+        break;
       }
       ++i;
     }
   }
-  if(prefetch_match && require_next_match && !table()->get_rep()->filter_handle.IsNull()){
-    
+  if (prefetch_match && require_next_match &&
+      !table()->get_rep()->filter_handle.IsNull()) {
     CachableEntry<ParsedFullFilterBlock> filter_block;
     const Status s = GetOrReadFilterBlock(no_io, range->begin()->get_context,
-                                        lookup_context, &filter_block, false);
+                                          lookup_context, &filter_block, false);
     if (!s.ok()) {
       IGNORE_STATUS_IF_ERROR(s);
       return;
@@ -409,12 +426,12 @@ void ModularFilterBlockReader::MayMatch(
 
     assert(filter_block.GetValue());
 
-    FilterBitsReader* const filter_bits_reader = filter_block.GetValue()->filter_bits_reader();
-    if(filter_bits_reader){
-        filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
-    } 
-  } 
- 
+    FilterBitsReader* const filter_bits_reader =
+        filter_block.GetValue()->filter_bits_reader();
+    if (filter_bits_reader) {
+      filter_bits_reader->MayMatch(num_keys, &keys[0], &may_match[0]);
+    }
+  }
 
   int i = 0;
   for (auto iter = filter_range.begin(); iter != filter_range.end(); ++iter) {
@@ -496,7 +513,5 @@ bool ModularFilterBlockReader::IsFilterCompatible(
     return false;
   }
 }
-
-
 
 }  // namespace ROCKSDB_NAMESPACE

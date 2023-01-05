@@ -103,7 +103,7 @@ class GetContext {
              SequenceNumber* seq = nullptr,
              PinnedIteratorsManager* _pinned_iters_mgr = nullptr,
              ReadCallback* callback = nullptr, bool* is_blob_index = nullptr,
-             uint64_t tracing_get_id = 0); 
+             uint64_t tracing_get_id = 0);
   GetContext(const Comparator* ucmp, const MergeOperator* merge_operator,
              Logger* logger, Statistics* statistics, GetState init_state,
              const Slice& user_key, PinnableSlice* value,
@@ -113,7 +113,7 @@ class GetContext {
              SequenceNumber* seq = nullptr,
              PinnedIteratorsManager* _pinned_iters_mgr = nullptr,
              ReadCallback* callback = nullptr, bool* is_blob_index = nullptr,
-             uint64_t tracing_get_id = 0); 
+             uint64_t tracing_get_id = 0);
 
   GetContext() = delete;
 
@@ -169,7 +169,9 @@ class GetContext {
 
   void push_operand(const Slice& value, Cleanable* value_pinner);
 
-   Statistics* GetStatistics(){ return statistics_; } // modified by modular filter
+  Statistics* GetStatistics() {
+    return statistics_;
+  }  // modified by modular filter
 
  private:
   const Comparator* ucmp_;

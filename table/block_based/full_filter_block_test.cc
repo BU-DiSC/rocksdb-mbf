@@ -22,7 +22,7 @@ class TestFilterBitsBuilder : public FilterBitsBuilder {
  public:
   explicit TestFilterBitsBuilder() {}
 
-  void ResetBPK(double /*bpk*/) override {} // modified by modular filters
+  void ResetBPK(double /*bpk*/) override {}  // modified by modular filters
 
   // Add Key to filter
   void AddKey(const Slice& key) override {
@@ -58,7 +58,7 @@ class TestFilterBitsReader : public FilterBitsReader {
 
   // Silence compiler warning about overloaded virtual
   using FilterBitsReader::MayMatch;
-  bool MayMatch(const Slice& entry) override { 
+  bool MayMatch(const Slice& entry) override {
     uint32_t h = Hash(entry.data(), entry.size(), 1);
     for (size_t i = 0; i + 4 <= len_; i += 4) {
       if (h == DecodeFixed32(data_ + i)) {
@@ -213,7 +213,7 @@ class CountUniqueFilterBitsBuilderWrapper : public FilterBitsBuilder {
  public:
   explicit CountUniqueFilterBitsBuilderWrapper(FilterBitsBuilder* b) : b_(b) {}
 
-  void ResetBPK(double /*bpk*/) override {} // modified by modular filters
+  void ResetBPK(double /*bpk*/) override {}  // modified by modular filters
   ~CountUniqueFilterBitsBuilderWrapper() override {}
 
   void AddKey(const Slice& key) override {

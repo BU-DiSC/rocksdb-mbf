@@ -265,7 +265,7 @@ static const char* CFilterName(void* arg) {
   (void)arg;
   return "foo";
 }
-static unsigned char CFilterFilter(void* arg, int level, const char* key, 
+static unsigned char CFilterFilter(void* arg, int level, const char* key,
                                    size_t key_length,
                                    const char* existing_value,
                                    size_t value_length, char** new_value,

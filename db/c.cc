@@ -3748,7 +3748,8 @@ rocksdb_filterpolicy_t* rocksdb_filterpolicy_create_bloom_format(int bits_per_ke
     }
     // No need to override GetFilterBitsBuilder if this one is overridden
     ROCKSDB_NAMESPACE::FilterBitsBuilder* GetBuilderWithContext(
-        const ROCKSDB_NAMESPACE::FilterBuildingContext& context, double bpk, bool prefetch) // modified for modular filters
+        const ROCKSDB_NAMESPACE::FilterBuildingContext& context, double bpk,
+        bool prefetch)  // modified for modular filters
         const override {
       return rep_->GetBuilderWithContext(context, bpk, prefetch);
     }

@@ -674,9 +674,10 @@ Status BlockBasedTable::Open(
   // raw pointer will be used to create HashIndexReader, whose reset may
   // access a dangling pointer.
   BlockCacheLookupContext lookup_context{TableReaderCaller::kPrefetch};
-  Rep* rep = new BlockBasedTable::Rep(ioptions, env_options, table_options,
-                                      internal_comparator, skip_filters,
-                                      file_size, level, immortal_table, mfilter_read_types); // modified by modular filters
+  Rep* rep = new BlockBasedTable::Rep(
+      ioptions, env_options, table_options, internal_comparator, skip_filters,
+      file_size, level, immortal_table,
+      mfilter_read_types);  // modified by modular filters
   rep->file = std::move(file);
   rep->footer = footer;
   rep->hash_index_allow_collision = table_options.hash_index_allow_collision;
@@ -977,7 +978,8 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
   // Find filter handle and filter type
   if (rep_->filter_policy) {
     for (auto filter_type :
-         {Rep::FilterType::kFullFilter, Rep::FilterType::kPartitionedFilter, Rep::FilterType::kModularFilter, // modified for modular filters
+         {Rep::FilterType::kFullFilter, Rep::FilterType::kPartitionedFilter,
+          Rep::FilterType::kModularFilter,  // modified for modular filters
           Rep::FilterType::kBlockFilter}) {
       std::string prefix;
       switch (filter_type) {
@@ -1518,7 +1520,8 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<TBlocklike>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    BlockContents* contents, bool* in_cache) const { // modified by modular filters
+    BlockContents* contents,
+    bool* in_cache) const {  // modified by modular filters
   assert(block_entry != nullptr);
   const bool no_io = (ro.read_tier == kBlockCacheTier);
   Cache* block_cache = rep_->table_options.block_cache.get();
@@ -1533,7 +1536,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
   char compressed_cache_key[kMaxCacheKeyPrefixSize + kMaxVarint64Length];
   Slice key /* key to the block cache */;
   Slice ckey /* key to the compressed block cache */;
-  bool is_cache_hit = false; // modified by modular filters
+  bool is_cache_hit = false;  // modified by modular filters
   if (block_cache != nullptr || block_cache_compressed != nullptr) {
     // create key for block cache
     if (block_cache != nullptr) {
@@ -1556,8 +1559,8 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
         // compressed block cache.
         is_cache_hit = true;
       }
-      if(in_cache){ // modified by modular filters
-	  *in_cache = true;
+      if (in_cache) {  // modified by modular filters
+        *in_cache = true;
       }
     }
 
@@ -1976,16 +1979,17 @@ Status BlockBasedTable::RetrieveBlock(
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<TBlocklike>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache, bool* in_cache) const { // modified by modular filters
+    bool for_compaction, bool use_cache,
+    bool* in_cache) const {  // modified by modular filters
   assert(block_entry);
   assert(block_entry->IsEmpty());
 
   Status s;
   if (use_cache) {
-    s = MaybeReadBlockAndLoadToCache(prefetch_buffer, ro, handle,
-                                     uncompression_dict, block_entry,
-                                     block_type, get_context, lookup_context,
-                                     /*contents=*/nullptr, in_cache); // modified by modular filters
+    s = MaybeReadBlockAndLoadToCache(
+        prefetch_buffer, ro, handle, uncompression_dict, block_entry,
+        block_type, get_context, lookup_context,
+        /*contents=*/nullptr, in_cache);  // modified by modular filters
 
     if (!s.ok()) {
       return s;
@@ -2060,28 +2064,32 @@ template Status BlockBasedTable::RetrieveBlock<BlockContents>(
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<BlockContents>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
+    bool for_compaction, bool use_cache,
+    bool* in_cache) const;  // modified by modular filters
 
 template Status BlockBasedTable::RetrieveBlock<ParsedFullFilterBlock>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<ParsedFullFilterBlock>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
+    bool for_compaction, bool use_cache,
+    bool* in_cache) const;  // modified by modular filters
 
 template Status BlockBasedTable::RetrieveBlock<Block>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<Block>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
+    bool for_compaction, bool use_cache,
+    bool* in_cache) const;  // modified by modular filters
 
 template Status BlockBasedTable::RetrieveBlock<UncompressionDict>(
     FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
     const BlockHandle& handle, const UncompressionDict& uncompression_dict,
     CachableEntry<UncompressionDict>* block_entry, BlockType block_type,
     GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    bool for_compaction, bool use_cache, bool* in_cache) const; // modified by modular filters
+    bool for_compaction, bool use_cache,
+    bool* in_cache) const;  // modified by modular filters
 
 BlockBasedTable::PartitionedIndexIteratorState::PartitionedIndexIteratorState(
     const BlockBasedTable* table,

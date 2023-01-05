@@ -41,12 +41,12 @@ class FilterBitsBuilder {
  public:
   virtual ~FilterBitsBuilder() {}
 
-  virtual void ResetBPK(double bpk) = 0; //modified for modular filters
+  virtual void ResetBPK(double bpk) = 0;  // modified for modular filters
 
   // Add Key to filter, you could use any way to store the key.
   // Such as: storing hashes or original keys
   // Keys are in sorted order and duplicated keys are possible.
-  virtual void AddKey(const Slice& key) = 0; 
+  virtual void AddKey(const Slice& key) = 0;
 
   // Generate the filter using the keys that are added
   // The return value of this function would be the filter bits,
@@ -81,7 +81,7 @@ class FilterBitsReader {
   virtual ~FilterBitsReader() {}
 
   // Check if the entry match the bits in filter
-  virtual bool MayMatch(const Slice& entry) = 0; 
+  virtual bool MayMatch(const Slice& entry) = 0;
 
   // Check if an array of entries match the bits in filter
   virtual void MayMatch(int num_keys, Slice** keys, bool* may_match) {
@@ -132,7 +132,9 @@ struct FilterBuildingContext {
 class FilterPolicy {
  public:
   float bits_per_key_ = 0;
-  float GetBitsPerKey() const {return bits_per_key_;} // modified for modular filters
+  float GetBitsPerKey() const {
+    return bits_per_key_;
+  }  // modified for modular filters
   virtual ~FilterPolicy();
 
   // Creates a new FilterPolicy based on the input value string and returns the
@@ -182,7 +184,8 @@ class FilterPolicy {
   // If overriding GetFilterBitsBuilder() suffices, it is not necessary to
   // override this function.
   virtual FilterBitsBuilder* GetBuilderWithContext(
-      const FilterBuildingContext&, double /* bpk */, bool /* prefetch */) const { // added for modular filter
+      const FilterBuildingContext&, double /* bpk */,
+      bool /* prefetch */) const {  // added for modular filter
     return GetFilterBitsBuilder();
   }
 

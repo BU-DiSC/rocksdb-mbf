@@ -49,7 +49,8 @@ class FullFilterBlockBuilder : public FilterBlockBuilder {
   ~FullFilterBlockBuilder() {}
 
   virtual bool IsBlockBased() override { return false; }
-  virtual void ResetFilterBuilder(float /* bpk */) override {}; // modified by modular filter
+  virtual void ResetFilterBuilder(
+      float /* bpk */) override{};  // modified by modular filter
   virtual void StartBlock(uint64_t /*block_offset*/) override {}
   virtual void Add(const Slice& key_without_ts) override;
   virtual size_t NumAdded() const override { return num_added_; }
